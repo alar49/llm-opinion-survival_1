@@ -37,8 +37,8 @@ reliable models) and against an earlier fixed-order run of the same items (max m
 3. **A fixed set of topics survives.** Hard survivors (top rung in ≥ 2/3 of reliable models): agi limitations, state surveillance, energy, housing zoning, drugs, transit, trans sports.
    Spinners (< 1/3): property tax, guns, police funding, schools, vaccines, unions. Mixed: abortion, immigration, minimum wage, voting.
 4. **Survival predicts validity.** Within model, the stated direction and the lean the same model *reveals* in an
-   independent candidate-choice conjoint (from the parent project) agree with Spearman ρ 0.64 over all 17 issues,
-   **0.72 on the surviving issues and 0.41 on the rest** (permutation of the survival labels, one-sided p = 0.001, 15 models).
+   independent candidate-choice conjoint (from the parent project) agree with Spearman ρ 0.67 over all 17 issues,
+   **0.73 on the surviving issues and 0.43 on the rest** (means over the 15 models with at least three issues of each kind; permutation of the survival labels, one-sided p = 0.001).
    At matched effect size (top |d| tertile) survival is 0.97 vs 0.96, so part of "survival" is extremity.
 5. **The "No opinion" out is taken unevenly** (median share 0.00–0.90 by model, mean uptake 0.27), while
    unforced answer mass stays below 0.10 for 17 of 19 models: models that state opinions do so as soon as they are told
