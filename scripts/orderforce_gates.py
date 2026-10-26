@@ -10,8 +10,9 @@ Per model:
   4. anchors: discrimination D = (mean score agree-true − mean score disagree-true)/2 and acquiescence A = their mean,
      per cell; gates: D at the reference cell ≥ 0.75, D under canonical numbering ≥ 0.5;
   5. validity curve: mean valid mass at F1 / F3 / F5 (O1).
-Writes results/orderforce_gates.{md,json}.   Usage: python3 scripts/orderforce_gates.py
+Writes results/orderforce_gates.{md,json}.   Usage: python3 scripts/orderforce_gates.py [--raw results/raw] [--out results]
 """
+import argparse
 import glob
 import json
 import re
@@ -62,9 +63,14 @@ def named_position(text, lines, optout_text=OPTOUT):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--raw", default=str(D), help="directory of orderforce_<tag>.jsonl[.gz] (+ .decode) files")
+    ap.add_argument("--out", default=str(ROOT / "results"), help="directory for orderforce_gates.{md,json}")
+    args = ap.parse_args()
+    raw = Path(args.raw)
     out = {}
     anchors = {a["id"]: a["expected"] for a in json.loads((ROOT / "data" / "orderforce_anchors.json").read_text())}
-    for f in sorted(set(glob.glob(str(D / "orderforce_*.jsonl")) + glob.glob(str(D / "orderforce_*.jsonl.gz")))):
+    for f in sorted(set(glob.glob(str(raw / "orderforce_*.jsonl")) + glob.glob(str(raw / "orderforce_*.jsonl.gz")))):
         if ".decode.jsonl" in f or (f.endswith(".jsonl") and Path(f + ".gz").exists()):
             continue
         tag = Path(f).name[len("orderforce_"):].replace(".jsonl.gz", "").replace(".jsonl", "")
@@ -72,7 +78,7 @@ def main():
         cell = lambda r: (r["order"], r["numbering"], r["forcing"], r["optout"])
         res = {"n_rows": len(rows)}
         # 1. identity reproduction vs arm A
-        old = D / f"stated_{tag}.jsonl"   # arm-A rows of the parent repo (election-bias-benchmark); absent here
+        old = raw / f"stated_{tag}.jsonl"   # arm-A rows of the parent repo (election-bias-benchmark); absent here
         if old.exists():
             A = {(r["item"], r["paraphrase"]): r["p_agree"] for r in load(old) if r["forcing"] == 3 and r.get("p_agree") is not None}
             new = defaultdict(dict)
@@ -135,7 +141,8 @@ def main():
     if not out:
         print("no orderforce outputs yet")
         return
-    OUTD = ROOT / "results"
+    OUTD = Path(args.out)
+    OUTD.mkdir(parents=True, exist_ok=True)
     json.dump(out, open(OUTD / "orderforce_gates.json", "w"), indent=1)
     f2 = lambda x: "—" if x is None or (isinstance(x, float) and x != x) else f"{x:.2f}"
     L = ["# Order-forcing pilot gates (PLAN §4)", ""]

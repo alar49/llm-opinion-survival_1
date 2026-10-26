@@ -31,7 +31,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import logit_sweep as _L  # noqa: E402
 from logit_sweep import (ISSUES, SELF_CHECK_TOL_BIAS, SELF_CHECK_TOL_P, Scorer,  # noqa: E402
-                         load_model, logsumexp, model_cfg, render_prefix)
+                         load_model, load_tokenizer, logsumexp, model_cfg, render_prefix)
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -268,7 +268,6 @@ def main():
 
     import torch
     import transformers
-    from transformers import AutoTokenizer
 
     cfg = model_cfg(args.model)
     system = json.loads((DATA / "prompts.json").read_text())["system"] if args.system == "ours" else args.system
@@ -312,7 +311,7 @@ def main():
         return
 
     t0 = time.time()
-    tok = AutoTokenizer.from_pretrained(cfg["id"], trust_remote_code=cfg.get("trust_remote_code", False))
+    tok = load_tokenizer(cfg)
     model = load_model(cfg)
     steer_handles = _steering.from_args(model, args)
     dev = model.get_input_embeddings().weight.device
@@ -334,7 +333,8 @@ def main():
     flat, bounds, _lines0 = CONTS[cell_key(todo[0]["order"], todo[0]["numbering"], todo[0]["optout"])]
     nv = [len(v) for v in option_conts(tok, _lines0, optout_text)]
 
-    meta = {"model": cfg["id"], "tag": cfg["tag"], "transformers": transformers.__version__, "torch": torch.__version__,
+    meta = {"model": cfg["id"], "tag": cfg["tag"], "revision": cfg.get("revision"), "chat_template_from": cfg.get("chat_template_from"),
+            "transformers": transformers.__version__, "torch": torch.__version__,
             "gpus": [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())] or ["cpu"], "p2p": _L.P2P_STATUS,
             "date": date.today().isoformat(), "n_prompts": len(prompts), "n_items": len({p["item"] for p in prompts}),
             "paraphrases": len(paraphrases), "forcings": forcings, "grid": args.grid, "anchors": args.anchors, "include_null": args.include_null,

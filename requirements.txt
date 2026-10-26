@@ -1,6 +1,6 @@
 # GPU side (scoring)
-torch>=2.4
-transformers>=4.51
+torch>=2.6           # transformers loads .bin-only checkpoints (OLMo 2 SFT, DPO) only with torch >= 2.6
+transformers>=4.56   # load_model passes dtype=
 accelerate>=1.6
 sentencepiece
 protobuf

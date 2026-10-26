@@ -88,7 +88,15 @@ bash run.sh google/gemma-3-4b-it         # one model: ~3,800 prompts, a few minu
 python3 scripts/orderforce_gates.py      # launch gates (decode agreement, opt-out mass, anchors)
 python3 scripts/orderforce_analyze.py    # ladder, spin budget, join with the revealed leans, predictions
 python3 scripts/plot_orderforce.py       # the summary figure
+bash run_olmo2.sh                        # OLMo 2 7B base / SFT / DPO / Instruct, analysed apart in results/olmo2/
 ```
+
+`run_olmo2.sh` scores the four OLMo 2 7B training stages at pinned revisions on one GPU (≥ 24 GB, ~75 GB of weights).
+The base model ships no chat template, so it takes the one its SFT, DPO and Instruct checkpoints share and all four see
+token-identical prompts. Gates and ladder run on these four alone in `results/olmo2/`, followed by
+`scripts/olmo2_compare.py`: a paired bootstrap of each issue's direction between stages, plus answer rates, opt-out
+uptake and order spin. The conjoint leans in `data/sweep_summary.json` do not cover OLMo 2, so it has no
+stated-vs-revealed join.
 
 `results/raw/` holds every scored prompt for the 19 models (gzip JSONL, one row per prompt with the per-label log-probs)
 and the greedy decodes of the spot-check subset. `data/sweep_summary.json` carries the revealed leans from the parent

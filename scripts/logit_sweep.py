@@ -219,6 +219,8 @@ def guard_p2p():
 def load_model(cfg):
     guard_p2p()
     kw = dict(dtype=torch.bfloat16, trust_remote_code=cfg.get("trust_remote_code", False))
+    if cfg.get("revision"):
+        kw["revision"] = cfg["revision"]
     if cfg.get("attn"):
         kw["attn_implementation"] = cfg["attn"]
     n = torch.cuda.device_count()
@@ -254,6 +256,20 @@ def load_model(cfg):
             gc.collect()
             torch.cuda.empty_cache()
     raise RuntimeError("could not load model:\n" + "\n".join(errs))
+
+
+def load_tokenizer(cfg):
+    """The tokenizer at the roster revision. A roster `chat_template_from` (a model id, at `chat_template_revision`)
+    replaces the chat template: OLMo 2 base ships none, so it takes the template its SFT/DPO/Instruct checkpoints
+    share and every training stage is scored on token-identical prompts."""
+    kw = {"trust_remote_code": cfg.get("trust_remote_code", False)}
+    if cfg.get("revision"):
+        kw["revision"] = cfg["revision"]
+    tok = AutoTokenizer.from_pretrained(cfg["id"], **kw)
+    if cfg.get("chat_template_from"):
+        src = {"revision": cfg["chat_template_revision"]} if cfg.get("chat_template_revision") else {}
+        tok.chat_template = AutoTokenizer.from_pretrained(cfg["chat_template_from"], **src).chat_template
+    return tok
 
 
 def render_prefix(tok, system, user, cfg):
@@ -481,7 +497,7 @@ def main():
         return
 
     t0 = time.time()
-    tok = AutoTokenizer.from_pretrained(cfg["id"], trust_remote_code=cfg.get("trust_remote_code", False))
+    tok = load_tokenizer(cfg)
     model = load_model(cfg)
     steer_handles = _steering.from_args(model, args)
     dev = model.get_input_embeddings().weight.device

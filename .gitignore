@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 results/raw/*.jsonl
 results/raw/*.decode.jsonl
+CLAUDE.md
+results/olmo2/raw/*.jsonl

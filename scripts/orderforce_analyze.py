@@ -7,7 +7,7 @@ Per (model, axis): d(cell) = (p_agree(report level) − p_agree(other level)) / 
 Cluster bootstrap over the paraphrase indices (REPS), drawn jointly across cells so every contrast is paired.
 Ladder: R0 CALLED (reference cell O1/F3/positional: CI excludes 0, |d| ≥ FLOOR, BH q=0.01 over the 19 axes);
 R1 SURVIVES ORDER+NUMBERING; R2 SURVIVES FORCING+OPT-OUT; R3 = all; plus the refusal-gated and saturated classes.
-Writes results/orderforce.{md,json} and orderforce_ladder.png.   Usage: python3 scripts/orderforce_analyze.py [--floor 0.10]
+Writes results/orderforce.{md,json} and orderforce_ladder.png.   Usage: python3 scripts/orderforce_analyze.py [--floor 0.10] [--raw results/raw] [--out results]
 """
 import argparse
 import glob
@@ -108,14 +108,18 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--floor", type=float, default=0.10)
     ap.add_argument("--q", type=float, default=0.01)
+    ap.add_argument("--raw", default=str(D), help="directory of orderforce_<tag>.jsonl[.gz] files")
+    ap.add_argument("--out", default=str(OUT), help="directory holding orderforce_gates.json; outputs go here")
     args = ap.parse_args()
     FLOOR = args.floor
-    gates = json.loads((OUT / "orderforce_gates.json").read_text()) if (OUT / "orderforce_gates.json").exists() else {}
+    raw_dir, out_dir = Path(args.raw), Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    gates = json.loads((out_dir / "orderforce_gates.json").read_text()) if (out_dir / "orderforce_gates.json").exists() else {}
     anchors = {a["id"]: a["expected"] for a in json.loads((ROOT / "data" / "orderforce_anchors.json").read_text())}
     sweep = json.loads((ROOT / "data" / "sweep_summary.json").read_text())   # revealed (conjoint) leans from the parent repo
     rng = np.random.default_rng(SEED)
     res = {"floor": FLOOR, "models": {}}
-    for f in sorted(set(glob.glob(str(D / "orderforce_*.jsonl")) + glob.glob(str(D / "orderforce_*.jsonl.gz")))):
+    for f in sorted(set(glob.glob(str(raw_dir / "orderforce_*.jsonl")) + glob.glob(str(raw_dir / "orderforce_*.jsonl.gz")))):
         if ".decode.jsonl" in f or (f.endswith(".jsonl") and Path(f + ".gz").exists()):
             continue
         tag = Path(f).name[len("orderforce_"):].replace(".jsonl.gz", "").replace(".jsonl", "")
@@ -409,7 +413,7 @@ def main():
     pr = res["predictions"]
     pr["ST2_ok"] = pr["ST2"]["mean_d_order_range"] is not None and pr["ST2"]["mean_raw_pagree_order_range"] is not None and pr["ST2"]["mean_d_order_range"] < 0.5 * pr["ST2"]["mean_raw_pagree_order_range"]
     pr["verdict"] = ("spinning arrow" if pr["SA1"] and pr["SA2"] and pr["SA3"] else "some topics stable" if pr["ST1_ok"] and (pr["ST2_ok"] or pr["ST3_ok"]) else "mixed")
-    json.dump(res, open(OUT / "orderforce.json", "w"), indent=1, default=float)
+    json.dump(res, open(out_dir / "orderforce.json", "w"), indent=1, default=float)
     # ---------- markdown
     f2 = lambda x: "—" if x is None or (isinstance(x, float) and x != x) else f"{x:+.2f}" if isinstance(x, float) else str(x)
     L = [f"# Order, forcing and the opt-out: which stated topic preferences survive? (floor {FLOOR}, q {args.q})", "",
@@ -433,7 +437,7 @@ def main():
     L += ["", "## Per model × axis rungs", "", "| model | " + " | ".join(AXES) + " |", "|---|" + "---|" * len(AXES)]
     for t in tags:
         L.append(f"| {t} | " + " | ".join(res["models"][t]["axes"].get(a, {}).get("rung", "—") for a in AXES) + " |")
-    (OUT / "orderforce.md").write_text("\n".join(L) + "\n")
+    (out_dir / "orderforce.md").write_text("\n".join(L) + "\n")
     # ---------- heatmap of rungs
     fig, ax = plt.subplots(figsize=(0.55 * len(AXES) + 3, 0.42 * len(tags) + 2.2))
     for i, t in enumerate(tags):
@@ -450,7 +454,7 @@ def main():
     ax.legend(handles=[Patch(color=RUNG_COL[r], label=r) for r in RUNGS], frameon=False, fontsize=7.5, loc="upper left", bbox_to_anchor=(1.01, 1), title="rung", title_fontsize=8)
     ax.set_title(f"Which stated preferences survive re-ordering and forcing? (floor {FLOOR})", fontsize=10, loc="left", fontweight="bold")
     fig.tight_layout()
-    fig.savefig(OUT / "orderforce_ladder.png", dpi=160, facecolor=SURF)
+    fig.savefig(out_dir / "orderforce_ladder.png", dpi=160, facecolor=SURF)
     # spin budget: per model, raw-score range under each manipulation, and the paired d's order range
     keys = [("order_F3", "option order (4 orders, F3)"), ("numbering", "numbering (canonical vs positional)"), ("forcing", "forcing (F1/F3/F5)"), ("paraphrase_4", "paraphrase (4 stems)"), ("order_F5_X", "order at F5 (12 axes)")]
     fig, axs = plt.subplots(1, 2, figsize=(11, 4.6), gridspec_kw={"width_ratios": [3, 1.6]})
@@ -476,7 +480,7 @@ def main():
         for sp in ("top", "right"):
             a_.spines[sp].set_visible(False)
     fig.tight_layout()
-    fig.savefig(OUT / "orderforce_spin.png", dpi=160, facecolor=SURF)
+    fig.savefig(out_dir / "orderforce_spin.png", dpi=160, facecolor=SURF)
     print("\n".join(L[:40]))
     print("predictions:", json.dumps(res["predictions"], indent=0, default=float)[:1500])
 
