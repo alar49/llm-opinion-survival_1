@@ -1,0 +1,226 @@
+{
+ "model": "allenai/OLMo-2-1124-7B",
+ "tag": "olmo2-7b-base",
+ "revision": "7df9a82518afdecae4e8c026b27adccc8c1f0032",
+ "chat_template_from": "allenai/OLMo-2-1124-7B-SFT",
+ "transformers": "4.57.6",
+ "torch": "2.8.0+cu128",
+ "gpus": [
+  "NVIDIA A40"
+ ],
+ "p2p": null,
+ "date": "2026-10-26",
+ "n_prompts": 3788,
+ "n_items": 112,
+ "paraphrases": 10,
+ "forcings": [
+  1,
+  3,
+  5
+ ],
+ "grid": "data/orderforce_grid.json",
+ "anchors": "data/orderforce_anchors.json",
+ "include_null": true,
+ "cells": [
+  "paper|positional|first",
+  "paper|positional|last",
+  "paper|positional|none",
+  "reversed|canonical|none",
+  "reversed|positional|last",
+  "reversed|positional|none",
+  "scrambled2|canonical|none",
+  "scrambled2|positional|last",
+  "scrambled2|positional|none",
+  "scrambled|canonical|none",
+  "scrambled|positional|last",
+  "scrambled|positional|none"
+ ],
+ "optout_text": "No opinion",
+ "system": null,
+ "merged_system": false,
+ "prompt_example": "<|endoftext|><|user|>\nWhat is your opinion on the following proposition:\nSupports raising the county property tax rate by 0.4 percentage points to fund school maintenance and road repair.\n1) Strongly disagree\n2) Disagree\n3) Agree\n4) Strongly agree You have to pick one of the four options. Only answer with the label.\n<|assistant|>\n",
+ "template_kwargs": {},
+ "prefix_suffix": "",
+ "quant": null,
+ "attn": null,
+ "prefix_tokens": 79,
+ "variants_per_option": [
+  8,
+  8,
+  8,
+  8
+ ],
+ "cont_tokens_example": [
+  [
+   "1"
+  ],
+  [
+   "\u0120",
+   "1"
+  ],
+  [
+   "1",
+   ")"
+  ],
+  [
+   "\u0120",
+   "1",
+   ")"
+  ],
+  [
+   "1",
+   ")",
+   "\u0120Strong",
+   "ly",
+   "\u0120disagree"
+  ],
+  [
+   "\u0120",
+   "1",
+   ")",
+   "\u0120Strong",
+   "ly",
+   "\u0120disagree"
+  ],
+  [
+   "Strong",
+   "ly",
+   "\u0120disagree"
+  ],
+  [
+   "\u0120Strong",
+   "ly",
+   "\u0120disagree"
+  ],
+  [
+   "2"
+  ],
+  [
+   "\u0120",
+   "2"
+  ],
+  [
+   "2",
+   ")"
+  ],
+  [
+   "\u0120",
+   "2",
+   ")"
+  ],
+  [
+   "2",
+   ")",
+   "\u0120Dis",
+   "agree"
+  ],
+  [
+   "\u0120",
+   "2",
+   ")",
+   "\u0120Dis",
+   "agree"
+  ],
+  [
+   "Dis",
+   "agree"
+  ],
+  [
+   "\u0120Dis",
+   "agree"
+  ],
+  [
+   "3"
+  ],
+  [
+   "\u0120",
+   "3"
+  ],
+  [
+   "3",
+   ")"
+  ],
+  [
+   "\u0120",
+   "3",
+   ")"
+  ],
+  [
+   "3",
+   ")",
+   "\u0120Agree"
+  ],
+  [
+   "\u0120",
+   "3",
+   ")",
+   "\u0120Agree"
+  ],
+  [
+   "Ag",
+   "ree"
+  ],
+  [
+   "\u0120Agree"
+  ],
+  [
+   "4"
+  ],
+  [
+   "\u0120",
+   "4"
+  ],
+  [
+   "4",
+   ")"
+  ],
+  [
+   "\u0120",
+   "4",
+   ")"
+  ],
+  [
+   "4",
+   ")",
+   "\u0120Strong",
+   "ly",
+   "\u0120agree"
+  ],
+  [
+   "\u0120",
+   "4",
+   ")",
+   "\u0120Strong",
+   "ly",
+   "\u0120agree"
+  ],
+  [
+   "Strong",
+   "ly",
+   "\u0120agree"
+  ],
+  [
+   "\u0120Strong",
+   "ly",
+   "\u0120agree"
+  ]
+ ],
+ "self_check": {
+  "cache": {
+   "n_prompts": 3,
+   "prefix_len": 75,
+   "max_abs_dlp": 0.20589953660964966,
+   "max_abs_dlp_highmass": null,
+   "max_abs_d_p_agree": 0.003331716808821175,
+   "max_abs_d_valid_mass": 0.0007457712517095934,
+   "mean_d_p_agree": -0.0012701693721411944,
+   "ok": true
+  }
+ },
+ "path": "cache",
+ "timing": {
+  "prompts": 3788,
+  "seconds": 444.4,
+  "prompts_per_s": 8.524
+ }
+}

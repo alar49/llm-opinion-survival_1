@@ -1,0 +1,531 @@
+{
+ "olmo2-7b-base": {
+  "n_rows": 3788,
+  "identity": {
+   "items": 0,
+   "note": "no arm-A rows on disk"
+  },
+  "decode": {
+   "scrambled|positional|3|none": {
+    "n": 24,
+    "named": 1,
+    "agreement": 0.0,
+    "kinds": {
+     "other": 23,
+     "label-inline": 1
+    },
+    "ok": false
+   },
+   "reversed|canonical|3|none": {
+    "n": 24,
+    "named": 0,
+    "agreement": null,
+    "kinds": {
+     "other": 24
+    },
+    "ok": false
+   },
+   "paper|positional|2|last": {
+    "n": 24,
+    "named": 0,
+    "agreement": null,
+    "kinds": {
+     "other": 24
+    },
+    "ok": false
+   }
+  },
+  "dk": {
+   "median_substantive_mass_F2": 0.02196001905308797,
+   "median_substantive_mass_F1": 0.02789139409803976,
+   "median_p_optout_F2": 0.11498317832736754,
+   "pivot_stands": false
+  },
+  "anchors": {
+   "paper|positional|1|none": {
+    "D": 0.03500255870302149,
+    "A": -1.021085851221951,
+    "n": 48
+   },
+   "paper|positional|1|last": {
+    "D": -0.02218194817796082,
+    "A": -1.151555728992882,
+    "n": 48
+   },
+   "paper|positional|2|first": {
+    "D": 0.02813654738232363,
+    "A": -0.7020227471195593,
+    "n": 24
+   },
+   "paper|positional|2|last": {
+    "D": -0.047849530620833525,
+    "A": -1.1124437150548425,
+    "n": 48
+   },
+   "reversed|positional|2|last": {
+    "D": 0.10300773623659287,
+    "A": 1.2677098802328823,
+    "n": 48
+   },
+   "scrambled|positional|2|last": {
+    "D": 0.057553074956644384,
+    "A": 0.5481734380882658,
+    "n": 48
+   },
+   "scrambled2|positional|2|last": {
+    "D": -0.01608329310084977,
+    "A": -0.4525222544653754,
+    "n": 48
+   },
+   "paper|positional|3|none": {
+    "D": -0.03663684091654029,
+    "A": -1.1227070205450613,
+    "n": 48
+   },
+   "reversed|canonical|3|none": {
+    "D": -0.03022450921670948,
+    "A": -0.20448661162758913,
+    "n": 48
+   },
+   "reversed|positional|3|none": {
+    "D": 0.08343280690424826,
+    "A": 1.28166600067242,
+    "n": 48
+   },
+   "scrambled|canonical|3|none": {
+    "D": -0.06648525061274163,
+    "A": -0.219287570958962,
+    "n": 48
+   },
+   "scrambled|positional|3|none": {
+    "D": 0.05995697195547878,
+    "A": 0.49808952958799435,
+    "n": 48
+   },
+   "scrambled2|canonical|3|none": {
+    "D": -0.07766059454782315,
+    "A": -0.8177889424811923,
+    "n": 48
+   },
+   "scrambled2|positional|3|none": {
+    "D": -0.01579107013837247,
+    "A": -0.36171808224407,
+    "n": 48
+   },
+   "paper|positional|5|none": {
+    "D": -0.04769977692192162,
+    "A": -1.1804618952891646,
+    "n": 48
+   }
+  },
+  "anchor_gates": {
+   "D_reference": -0.03663684091654029,
+   "D_canonical_median": -0.06648525061274163,
+   "ref_ok": false,
+   "canonical_ok": false
+  },
+  "validity": {
+   "F1": 0.029354762929302825,
+   "F3": 0.013455977271949277,
+   "F5": 0.016260869305088205
+  }
+ },
+ "olmo2-7b-dpo": {
+  "n_rows": 3788,
+  "identity": {
+   "items": 0,
+   "note": "no arm-A rows on disk"
+  },
+  "decode": {
+   "scrambled|positional|3|none": {
+    "n": 24,
+    "named": 20,
+    "agreement": 1.0,
+    "kinds": {
+     "number": 14,
+     "other": 4,
+     "label": 6
+    },
+    "ok": true
+   },
+   "reversed|canonical|3|none": {
+    "n": 24,
+    "named": 23,
+    "agreement": 1.0,
+    "kinds": {
+     "number": 23,
+     "other": 1
+    },
+    "ok": true
+   },
+   "paper|positional|2|last": {
+    "n": 24,
+    "named": 22,
+    "agreement": 1.0,
+    "kinds": {
+     "number": 22,
+     "other": 2
+    },
+    "ok": true
+   }
+  },
+  "dk": {
+   "median_substantive_mass_F2": 0.6925147218991625,
+   "median_substantive_mass_F1": 0.002328280123536919,
+   "median_p_optout_F2": 0.04258440191572009,
+   "pivot_stands": true
+  },
+  "anchors": {
+   "paper|positional|1|none": {
+    "D": 0.5182224799283804,
+    "A": -0.35829627278347964,
+    "n": 48
+   },
+   "paper|positional|1|last": {
+    "D": 0.4105745874677322,
+    "A": -0.5940506937824953,
+    "n": 48
+   },
+   "paper|positional|2|first": {
+    "D": 0.6331789641191347,
+    "A": 0.18785759414692912,
+    "n": 24
+   },
+   "paper|positional|2|last": {
+    "D": 0.08629270646456916,
+    "A": 0.9602245790019364,
+    "n": 48
+   },
+   "reversed|positional|2|last": {
+    "D": 0.020959977049006095,
+    "A": -1.0611728163155707,
+    "n": 48
+   },
+   "scrambled|positional|2|last": {
+    "D": 0.058529109373324395,
+    "A": -0.8327057809971645,
+    "n": 48
+   },
+   "scrambled2|positional|2|last": {
+    "D": 0.6491447234747721,
+    "A": 0.2516611209591574,
+    "n": 48
+   },
+   "paper|positional|3|none": {
+    "D": 0.24922920062139292,
+    "A": 0.7817699752149365,
+    "n": 48
+   },
+   "reversed|canonical|3|none": {
+    "D": 0.9722708642809164,
+    "A": -0.336007660909071,
+    "n": 48
+   },
+   "reversed|positional|3|none": {
+    "D": 0.17449761432160532,
+    "A": -0.966173470591567,
+    "n": 48
+   },
+   "scrambled|canonical|3|none": {
+    "D": 0.7662832878069678,
+    "A": 0.6174463832965694,
+    "n": 48
+   },
+   "scrambled|positional|3|none": {
+    "D": 0.41274535041825094,
+    "A": -0.5436289886746621,
+    "n": 48
+   },
+   "scrambled2|canonical|3|none": {
+    "D": 0.913411247736807,
+    "A": 0.041363973885076455,
+    "n": 48
+   },
+   "scrambled2|positional|3|none": {
+    "D": 0.5424610375199156,
+    "A": 0.4122953279228875,
+    "n": 48
+   },
+   "paper|positional|5|none": {
+    "D": 0.3693110506611083,
+    "A": 0.6173184788360688,
+    "n": 48
+   }
+  },
+  "anchor_gates": {
+   "D_reference": 0.24922920062139292,
+   "D_canonical_median": 0.913411247736807,
+   "ref_ok": false,
+   "canonical_ok": true
+  },
+  "validity": {
+   "F1": 0.005225672652848426,
+   "F3": 0.6963215157868173,
+   "F5": 0.2379826366822615
+  }
+ },
+ "olmo2-7b-instruct": {
+  "n_rows": 3788,
+  "identity": {
+   "items": 0,
+   "note": "no arm-A rows on disk"
+  },
+  "decode": {
+   "scrambled|positional|3|none": {
+    "n": 24,
+    "named": 24,
+    "agreement": 0.9583333333333334,
+    "kinds": {
+     "number": 16,
+     "label": 8
+    },
+    "ok": true
+   },
+   "reversed|canonical|3|none": {
+    "n": 24,
+    "named": 24,
+    "agreement": 1.0,
+    "kinds": {
+     "number": 24
+    },
+    "ok": true
+   },
+   "paper|positional|2|last": {
+    "n": 24,
+    "named": 24,
+    "agreement": 1.0,
+    "kinds": {
+     "number": 24
+    },
+    "ok": true
+   }
+  },
+  "dk": {
+   "median_substantive_mass_F2": 0.9012942417597645,
+   "median_substantive_mass_F1": 0.0023959478805606824,
+   "median_p_optout_F2": 0.030950677269554257,
+   "pivot_stands": true
+  },
+  "anchors": {
+   "paper|positional|1|none": {
+    "D": 0.6955138794317823,
+    "A": -0.03247212197085314,
+    "n": 48
+   },
+   "paper|positional|1|last": {
+    "D": 0.5966912859929464,
+    "A": -0.2007715754011662,
+    "n": 48
+   },
+   "paper|positional|2|first": {
+    "D": 0.6026318521382511,
+    "A": 0.3817302757732566,
+    "n": 24
+   },
+   "paper|positional|2|last": {
+    "D": 0.04712911211038889,
+    "A": 0.9887878132261465,
+    "n": 48
+   },
+   "reversed|positional|2|last": {
+    "D": 0.0295160098020405,
+    "A": -1.0735055818310943,
+    "n": 48
+   },
+   "scrambled|positional|2|last": {
+    "D": 0.070794660613413,
+    "A": -0.8760013134375301,
+    "n": 48
+   },
+   "scrambled2|positional|2|last": {
+    "D": 0.620618126069901,
+    "A": 0.31409337634629175,
+    "n": 48
+   },
+   "paper|positional|3|none": {
+    "D": 0.20887837087116035,
+    "A": 0.7992142101601976,
+    "n": 48
+   },
+   "reversed|canonical|3|none": {
+    "D": 1.0241317232663325,
+    "A": -0.20604217912189693,
+    "n": 48
+   },
+   "reversed|positional|3|none": {
+    "D": 0.2134572877923563,
+    "A": -0.9117332961220256,
+    "n": 48
+   },
+   "scrambled|canonical|3|none": {
+    "D": 0.5392295673298052,
+    "A": 0.7136336222785019,
+    "n": 48
+   },
+   "scrambled|positional|3|none": {
+    "D": 0.49324330724582005,
+    "A": -0.478800749988654,
+    "n": 48
+   },
+   "scrambled2|canonical|3|none": {
+    "D": 0.6108477474220356,
+    "A": 0.3589200870119206,
+    "n": 48
+   },
+   "scrambled2|positional|3|none": {
+    "D": 0.4561156848666227,
+    "A": 0.5105657550420433,
+    "n": 48
+   },
+   "paper|positional|5|none": {
+    "D": 0.5282556416104947,
+    "A": 0.4387582837243739,
+    "n": 48
+   }
+  },
+  "anchor_gates": {
+   "D_reference": 0.20887837087116035,
+   "D_canonical_median": 0.6108477474220356,
+   "ref_ok": false,
+   "canonical_ok": true
+  },
+  "validity": {
+   "F1": 0.00748709093669486,
+   "F3": 0.854028071710935,
+   "F5": 0.5061279089210969
+  }
+ },
+ "olmo2-7b-sft": {
+  "n_rows": 3788,
+  "identity": {
+   "items": 0,
+   "note": "no arm-A rows on disk"
+  },
+  "decode": {
+   "scrambled|positional|3|none": {
+    "n": 24,
+    "named": 14,
+    "agreement": 1.0,
+    "kinds": {
+     "number": 14,
+     "other": 10
+    },
+    "ok": true
+   },
+   "reversed|canonical|3|none": {
+    "n": 24,
+    "named": 21,
+    "agreement": 0.9523809523809523,
+    "kinds": {
+     "number": 21,
+     "other": 3
+    },
+    "ok": true
+   },
+   "paper|positional|2|last": {
+    "n": 24,
+    "named": 24,
+    "agreement": 0.9583333333333334,
+    "kinds": {
+     "number": 23,
+     "label": 1
+    },
+    "ok": true
+   }
+  },
+  "dk": {
+   "median_substantive_mass_F2": 0.6070050065162433,
+   "median_substantive_mass_F1": 0.009685602536447013,
+   "median_p_optout_F2": 0.07827486803768535,
+   "pivot_stands": true
+  },
+  "anchors": {
+   "paper|positional|1|none": {
+    "D": 0.32503313055693833,
+    "A": -0.3545909785117484,
+    "n": 48
+   },
+   "paper|positional|1|last": {
+    "D": 0.2050497575331357,
+    "A": -0.7602136811538427,
+    "n": 48
+   },
+   "paper|positional|2|first": {
+    "D": 0.47458981845968656,
+    "A": -0.025721753502002287,
+    "n": 24
+   },
+   "paper|positional|2|last": {
+    "D": 0.10638226445640636,
+    "A": 0.9408900125098634,
+    "n": 48
+   },
+   "reversed|positional|2|last": {
+    "D": 0.08617014018061298,
+    "A": -0.8960555716847841,
+    "n": 48
+   },
+   "scrambled|positional|2|last": {
+    "D": 0.18666804390398292,
+    "A": -0.4836451322553813,
+    "n": 48
+   },
+   "scrambled2|positional|2|last": {
+    "D": 0.4823936614099107,
+    "A": 0.1724297383686458,
+    "n": 48
+   },
+   "paper|positional|3|none": {
+    "D": 0.24484146795680806,
+    "A": 0.792978277989542,
+    "n": 48
+   },
+   "reversed|canonical|3|none": {
+    "D": 0.6654616074542485,
+    "A": -0.10112059776566779,
+    "n": 48
+   },
+   "reversed|positional|3|none": {
+    "D": 0.2247962555196881,
+    "A": -0.7134020548563085,
+    "n": 48
+   },
+   "scrambled|canonical|3|none": {
+    "D": 0.6036567825705325,
+    "A": 0.6430703699636494,
+    "n": 48
+   },
+   "scrambled|positional|3|none": {
+    "D": 0.4888586717539169,
+    "A": -0.243206671844945,
+    "n": 48
+   },
+   "scrambled2|canonical|3|none": {
+    "D": 0.5304595709102444,
+    "A": 0.18242976183924225,
+    "n": 48
+   },
+   "scrambled2|positional|3|none": {
+    "D": 0.4229213540921758,
+    "A": 0.289792041471311,
+    "n": 48
+   },
+   "paper|positional|5|none": {
+    "D": 0.2801099707506142,
+    "A": 0.638135850594638,
+    "n": 48
+   }
+  },
+  "anchor_gates": {
+   "D_reference": 0.24484146795680806,
+   "D_canonical_median": 0.6036567825705325,
+   "ref_ok": false,
+   "canonical_ok": true
+  },
+  "validity": {
+   "F1": 0.018737284134747276,
+   "F3": 0.5202697112774803,
+   "F5": 0.26177840801527286
+  }
+ }
+}
