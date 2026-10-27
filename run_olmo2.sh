@@ -4,6 +4,8 @@
 # base model's chat template are pinned in scripts/sweep_models.json. Resumable: rerun the same command after an interruption.
 # Usage: bash run_olmo2.sh [dir, default results/olmo2]
 set -euo pipefail
+echo "run_olmo2.sh is the superseded v1 runner (chat template; scripts/olmo2_compare.py now implements v2). Use run_olmo2_v2.sh (PLAN_OLMO2.md)." >&2
+exit 1
 DIR="${1:-results/olmo2}"
 if [ -d /workspace ] && [ -z "${HF_HOME:-}" ]; then
     export HF_HOME=/workspace/hf   # RunPod: keep the ~73 GB of weights on the volume, not the container disk

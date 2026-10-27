@@ -16,7 +16,15 @@ Scoring reuses logit_sweep.Scorer (prefix forward once with the KV cache, contin
 cache, prompts grouped into batches of identical token length). No system prompt by default, like the
 paper; --system ours adds the repo's own.
 
+Completion format (OLMo 2 v2, PLAN_OLMO2.md §2.2 and §3.1): a roster entry with "prompt_format": "completion" gets no
+chat template and no system prompt. The prompt is doc_start + head + stem, statement, option lines, the forcing text
+on its own line, then the ending (e.g. "\\nAnswer:"). Each option is scored with six strings (its number and its label,
+each bare, after a space and after a newline), checked to be disjoint before any scoring and read out as their sum, and
+every row stores the 20 most likely first tokens. Such an entry is selected with --tag, since one checkpoint runs
+under several endings.
+
 Usage: python3 -u scripts/stated_logit.py --model google/gemma-3-4b-it --out results/raw/orderforce_gemma-3-4b-it.jsonl --grid data/orderforce_grid.json --anchors data/orderforce_anchors.json --include_null
+       python3 -u scripts/stated_logit.py --tag olmo2-7b-sft-answer --out results/olmo2_v2/raw/orderforce_olmo2-7b-sft-answer.jsonl --grid data/olmo2_v2_grid.json --anchors data/orderforce_anchors.json --include_null
 """
 import argparse
 from collections import defaultdict
@@ -32,6 +40,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import logit_sweep as _L  # noqa: E402
 from logit_sweep import (ISSUES, SELF_CHECK_TOL_BIAS, SELF_CHECK_TOL_P, Scorer,  # noqa: E402
                          load_model, load_tokenizer, logsumexp, model_cfg, render_prefix)
+from readout import option_fields  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -64,6 +73,23 @@ SCORES = [-2.0, -1.0, 1.0, 2.0]
 # A cyclic Latin square closed under reversal: every label sits at every position exactly once across the four.
 ORDERS = {"paper": [0, 1, 2, 3], "reversed": [3, 2, 1, 0], "scrambled": [2, 0, 3, 1], "scrambled2": [1, 3, 0, 2]}
 OPTOUT_TEXT = "No opinion"   # the explicit fifth option (PLAN §3.5)
+STRING_FORMS = ("", " ", "\n")   # completion format: each answer string bare, after a space, after a newline (PLAN_OLMO2.md §3.1)
+TOPK = 20                        # completion format: first tokens stored per row (PLAN_OLMO2.md §3.4)
+
+
+def model_cfg_by_tag(tag):
+    """The roster entry with this tag (one checkpoint can have several, one per prompt format)."""
+    for m in _L.ROSTER["models"]:
+        if m["tag"] == tag:
+            return dict(m)
+    raise SystemExit(f"no roster entry with tag {tag!r} in scripts/sweep_models.json")
+
+
+def completion_format(cfg):
+    """{"head", "ending"} for a completion-format roster entry, None for the chat-template format."""
+    if cfg.get("prompt_format") != "completion":
+        return None
+    return {"head": cfg.get("head", ""), "ending": cfg["ending"]}
 
 
 def option_lines(order="paper", numbering="positional", optout=None, optout_text=OPTOUT_TEXT):
@@ -126,21 +152,25 @@ def load_extra_items(path):
     return items
 
 
-def _prompt(it, pi, para, fl, order, numbering, optout, optout_text, system, key, arm=None):
+def _prompt(it, pi, para, fl, order, numbering, optout, optout_text, system, key, arm=None, fmt=None):
     lines = option_lines(order, numbering, optout, optout_text)
-    user = para + "\n" + it["text"] + "\n" + options_text(lines, optout_text) + FORCING[fl]
+    if fmt is None:
+        user = para + "\n" + it["text"] + "\n" + options_text(lines, optout_text) + FORCING[fl]
+    else:   # completion format: the forcing text on its own line (none at level 1), then the ending
+        user = (fmt["head"] + para + "\n" + it["text"] + "\n" + options_text(lines, optout_text)
+                + ("\n" + FORCING[fl].strip() if FORCING[fl] else "") + fmt["ending"])
     return {"item": it["id"], "text": it["text"], "source": it["source"], "axis": it.get("axis"), "level": it.get("level"),
             "paraphrase": pi, "forcing": fl, "order": order, "numbering": numbering, "optout": optout or "none",
             "arm": arm, "system": system, "user": user, "key": key}
 
 
-def build_prompts(items, paraphrases, forcings, system):
+def build_prompts(items, paraphrases, forcings, system, fmt=None):
     """The original stated readout: one prompt per (item, paraphrase, forcing) at the paper's order."""
     out = []
     for it in items:
         for pi, para in enumerate(paraphrases):
             for fl in forcings:
-                out.append(_prompt(it, pi, para, fl, "paper", "positional", None, OPTOUT_TEXT, system, f"pct|{it['id']}|{pi}|{fl}"))
+                out.append(_prompt(it, pi, para, fl, "paper", "positional", None, OPTOUT_TEXT, system, f"pct|{it['id']}|{pi}|{fl}", fmt=fmt))
     return out
 
 
@@ -155,7 +185,7 @@ def select_items(items, sel):
     return out
 
 
-def build_prompts_grid(items, grid, system):
+def build_prompts_grid(items, grid, system, fmt=None):
     """PLAN §3.8: arms = [{name, items: {sources|axes}, orders, numbering, forcings, optout, paraphrases}], deduplicated
     by key. Keys: of|item|para|forcing|order|numbering|optout."""
     out, seen = [], set()
@@ -172,7 +202,7 @@ def build_prompts_grid(items, grid, system):
                         if key in seen:
                             continue
                         seen.add(key)
-                        out.append(_prompt(it, pi, para, fl, order, numbering, optout, optout_text, system, key, arm["name"]))
+                        out.append(_prompt(it, pi, para, fl, order, numbering, optout, optout_text, system, key, arm["name"], fmt))
     return out
 
 
@@ -188,7 +218,12 @@ def decode_subset(prompts, grid):
 
 def render_user_prefix(tok, system, user, cfg):
     """logit_sweep.render_prefix, but system=None means no system turn at all (the paper's default):
-    the model's own chat template then decides whether a default system message is injected."""
+    the model's own chat template then decides whether a default system message is injected.
+    The completion format uses no template: the prompt is the roster's doc_start followed by the text."""
+    if cfg.get("prompt_format") == "completion":
+        if system is not None:
+            raise ValueError("the completion format has no system prompt")
+        return cfg.get("doc_start", "") + user, False
     if system is not None:
         return render_prefix(tok, system, user, cfg)
     kwargs = cfg.get("template_kwargs", {})
@@ -210,6 +245,23 @@ def option_conts(tok, lines, optout_text=OPTOUT_TEXT):
                 if ids and ids not in vs:
                     vs.append(ids)
         conts.append(vs)
+    return conts
+
+
+def answer_strings(tok, lines, optout_text=OPTOUT_TEXT):
+    """Completion format (PLAN_OLMO2.md §3.1): per listed position, six strings: the printed number and the option
+    text, each bare, after a space and after a newline. Raises unless no string's token ids are a prefix of another's
+    within the cell: only then are the six (and the options) disjoint events whose probabilities add."""
+    conts = [[tok(pre + s_, add_special_tokens=False)["input_ids"] for s_ in (str(num), LABELS[lab] if lab is not None else optout_text)
+              for pre in STRING_FORMS] for num, lab in lines]
+    flat = [(c, k) for k, v in enumerate(conts) for c in v]
+    for i, (a, ka) in enumerate(flat):
+        if not a:
+            raise ValueError(f"empty answer string at position {ka + 1}")
+        for j, (b, kb) in enumerate(flat):
+            if i != j and b[:len(a)] == a:
+                raise ValueError(f"answer strings not disjoint: {tok.convert_ids_to_tokens(a)} (position {ka + 1}) is a prefix "
+                                 f"of {tok.convert_ids_to_tokens(b)} (position {kb + 1}) in {options_text(lines, optout_text)!r}")
     return conts
 
 
@@ -247,9 +299,16 @@ def readout(lp_flat, bounds, lines):
             "score": score, "p_optout": p_optout, "argmax_pos": argmax_pos}
 
 
+def readout_summed(lp_flat, bounds, lines):
+    """Completion format: the strings are disjoint (answer_strings), so an option's probability is the sum of its
+    strings' (scripts/readout.py: summed_readout gives the same from a stored row)."""
+    return option_fields([lab for _num, lab in lines], [logsumexp(lp_flat[bounds[o]:bounds[o + 1]]) for o in range(len(lines))])
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", required=True)
+    ap.add_argument("--model", default=None, help="HF model id, looked up in scripts/sweep_models.json by id")
+    ap.add_argument("--tag", default=None, help="roster tag instead of --model: selects one entry when a checkpoint has several (OLMo 2 v2 endings)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--pct", default=str(DATA / "pct_issues.json"))
     ap.add_argument("--paraphrases", type=int, default=10, help="first N of the paper's 10 paraphrases")
@@ -269,14 +328,21 @@ def main():
     import torch
     import transformers
 
-    cfg = model_cfg(args.model)
+    if not (args.model or args.tag):
+        ap.error("give --model or --tag")
+    cfg = model_cfg_by_tag(args.tag) if args.tag else model_cfg(args.model)
+    if args.model and args.model != cfg["id"]:
+        ap.error(f"--model {args.model} does not match the roster entry of --tag {args.tag} ({cfg['id']})")
+    fmt = completion_format(cfg)
+    if fmt and args.system:
+        ap.error("the completion format has no system prompt")
     system = json.loads((DATA / "prompts.json").read_text())["system"] if args.system == "ours" else args.system
     forcings = [int(x) for x in args.forcing.split(",")]
     paraphrases = PARAPHRASES[:args.paraphrases]
     items = build_items(args.pct, include_null=args.include_null) + load_extra_items(args.anchors)
     grid = json.loads(Path(args.grid).read_text()) if args.grid else None
     optout_text = (grid or {}).get("optout_text", OPTOUT_TEXT)
-    prompts = build_prompts_grid(items, grid, system) if grid else build_prompts(items, paraphrases, forcings, system)
+    prompts = build_prompts_grid(items, grid, system, fmt) if grid else build_prompts(items, paraphrases, forcings, system, fmt)
     to_decode = decode_subset(prompts, grid) if grid else []
     if args.steer_vec and args.condition == "clean":
         ap.error("--steer_vec needs --condition NAME")
@@ -305,46 +371,62 @@ def main():
     todo = [p for p in prompts if p["key"] not in done]
     if args.limit:
         todo = todo[:args.limit]
-    print(f"{cfg['id']}: {len(prompts)} prompts, {len(done)} done, {len(todo)} to run", flush=True)
-    if not todo:
+    dpath = Path(str(out) + ".decode.jsonl")
+    ddone = set()
+    if dpath.exists():
+        for line in dpath.open():
+            try:
+                ddone.add(json.loads(line)["key"])
+            except (json.JSONDecodeError, KeyError):
+                pass
+    dtodo = [p for p in to_decode if p["key"] not in ddone]
+    print(f"{cfg['tag']} ({cfg['id']}): {len(prompts)} prompts, {len(done)} done, {len(todo)} to run; "
+          f"{len(to_decode)} decodes, {len(to_decode) - len(dtodo)} done", flush=True)
+    if not todo and not dtodo:
         print("SWEEP_DONE", flush=True)
         return
 
     t0 = time.time()
     tok = load_tokenizer(cfg)
-    model = load_model(cfg)
-    steer_handles = _steering.from_args(model, args)
-    dev = model.get_input_embeddings().weight.device
-    print(f"loaded in {time.time()-t0:.0f}s on {torch.cuda.device_count()} GPU(s); input device {dev}", flush=True)
-    scorer = Scorer(model, tok, dev)
-
-    for p in todo:
+    for p in todo + dtodo:
         text, merged = render_user_prefix(tok, p["system"], p["user"], cfg)
         p["prefix_ids"] = tok(text, add_special_tokens=False)["input_ids"]
         p["merged"] = merged
-    CONTS = {}   # cell -> (flat continuation list, bounds, lines)
+    CONTS = {}   # cell -> (flat continuation list, bounds, lines); built (and, in the completion format, checked) before any GPU work
     for p in prompts:
         ck = cell_key(p["order"], p["numbering"], p["optout"])
         if ck not in CONTS:
             lines = option_lines(p["order"], p["numbering"], None if p["optout"] == "none" else p["optout"], optout_text)
-            conts = option_conts(tok, lines, optout_text)
+            conts = answer_strings(tok, lines, optout_text) if fmt else option_conts(tok, lines, optout_text)
             nv_ = [len(v) for v in conts]
             CONTS[ck] = ([c for v in conts for c in v], [sum(nv_[:o]) for o in range(len(nv_) + 1)], lines)
-    flat, bounds, _lines0 = CONTS[cell_key(todo[0]["order"], todo[0]["numbering"], todo[0]["optout"])]
-    nv = [len(v) for v in option_conts(tok, _lines0, optout_text)]
+    FIRST = {ck: {c[0] for c in v[0]} for ck, v in CONTS.items()}   # first tokens of the cell's answer strings ("captured")
+    rd = readout_summed if fmt else readout
+    model = load_model(cfg)
+    steer_handles = _steering.from_args(model, args)
+    dev = model.get_input_embeddings().weight.device
+    print(f"loaded in {time.time()-t0:.0f}s on {torch.cuda.device_count()} GPU(s); input device {dev}", flush=True)
+    scorer = Scorer(model, tok, dev, topk=TOPK if fmt else 0)
 
-    meta = {"model": cfg["id"], "tag": cfg["tag"], "revision": cfg.get("revision"), "chat_template_from": cfg.get("chat_template_from"),
-            "transformers": transformers.__version__, "torch": torch.__version__,
-            "gpus": [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())] or ["cpu"], "p2p": _L.P2P_STATUS,
-            "date": date.today().isoformat(), "n_prompts": len(prompts), "n_items": len({p["item"] for p in prompts}),
-            "paraphrases": len(paraphrases), "forcings": forcings, "grid": args.grid, "anchors": args.anchors, "include_null": args.include_null,
-            "cells": sorted({"|".join(cell_key(p["order"], p["numbering"], p["optout"])) for p in prompts}), "optout_text": optout_text,
-            "system": system, "merged_system": todo[0]["merged"],
-            "prompt_example": render_user_prefix(tok, todo[0]["system"], todo[0]["user"], cfg)[0],
-            "template_kwargs": cfg.get("template_kwargs", {}), "prefix_suffix": cfg.get("prefix_suffix", ""),
-            "quant": cfg.get("quant"), "attn": cfg.get("attn"), "prefix_tokens": len(todo[0]["prefix_ids"]),
-            "variants_per_option": nv, "cont_tokens_example": [tok.convert_ids_to_tokens(c) for c in flat]}
+    ex = (todo or dtodo)[0]
+    ex_flat, ex_bounds, _lines0 = CONTS[cell_key(ex["order"], ex["numbering"], ex["optout"])]
     meta_path = Path(str(out) + ".meta.json")
+    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}   # a resumed run keeps its earlier timing and self-check
+    meta.update({"model": cfg["id"], "tag": cfg["tag"], "revision": cfg.get("revision"), "chat_template_from": cfg.get("chat_template_from"),
+                 "prompt_format": cfg.get("prompt_format", "chat"), "doc_start": cfg.get("doc_start"), "head": fmt and fmt["head"], "ending": fmt and fmt["ending"],
+                 "transformers": transformers.__version__, "torch": torch.__version__,
+                 "gpus": [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())] or ["cpu"], "p2p": _L.P2P_STATUS,
+                 "date": date.today().isoformat(), "n_prompts": len(prompts), "n_decode": len(to_decode), "n_items": len({p["item"] for p in prompts}),
+                 "paraphrases": len(paraphrases), "forcings": forcings, "grid": args.grid, "anchors": args.anchors, "include_null": args.include_null,
+                 "cells": sorted({"|".join(cell_key(p["order"], p["numbering"], p["optout"])) for p in prompts}), "optout_text": optout_text,
+                 "system": system, "merged_system": ex["merged"],
+                 "prompt_example": render_user_prefix(tok, ex["system"], ex["user"], cfg)[0],
+                 "template_kwargs": cfg.get("template_kwargs", {}), "prefix_suffix": cfg.get("prefix_suffix", ""),
+                 "quant": cfg.get("quant"), "attn": cfg.get("attn"), "prefix_tokens": len(ex["prefix_ids"]),
+                 "variants_per_option": [ex_bounds[o + 1] - ex_bounds[o] for o in range(len(ex_bounds) - 1)],
+                 "strings_per_option": len(STRING_FORMS) * 2 if fmt else None, "top_k": TOPK if fmt else 0,
+                 "cont_tokens_example": [tok.convert_ids_to_tokens(c) for c in ex_flat]})
+    n_done, el = 0, 0.0
 
     # Self-check, as in logit_sweep: try the cached batched path, then the cache-free batched path,
     # then fall back to unbatched full forwards. The gate is on the quantities actually reported
@@ -362,9 +444,9 @@ def main():
         for p in g:
             if len(chk) < 3 and (not chk or cell_key(p["order"], p["numbering"], p["optout"]) == cell_key(chk[0]["order"], chk[0]["numbering"], chk[0]["optout"])):
                 chk.append(p)
-    flat, bounds, chk_lines = CONTS[cell_key(chk[0]["order"], chk[0]["numbering"], chk[0]["optout"])]
 
     def check(name, fn):
+        flat, bounds, chk_lines = CONTS[cell_key(chk[0]["order"], chk[0]["numbering"], chk[0]["optout"])]
         try:
             got = fn([p["prefix_ids"] for p in chk], [flat for _ in chk])
         except Exception as e:
@@ -376,7 +458,7 @@ def main():
         hi = [d for d, g in zip(dlp, [x for gs in got for x in gs]) if g > -3]   # variants carrying real mass
         dpa, dvm, bias, skipped = [], [], 0.0, 0
         for gs, rs in zip(got, ref):
-            g, r = readout(gs, bounds, chk_lines), readout(rs, bounds, chk_lines)
+            g, r = rd(gs, bounds, chk_lines), rd(rs, bounds, chk_lines)
             if g["p_agree"] is None and r["p_agree"] is None:   # every option underflowed on both paths: no information, not a disagreement
                 skipped += 1
                 continue
@@ -405,71 +487,73 @@ def main():
         print(f"self-check[{name}] FAILED: {why}", flush=True)
         return False
 
-    path = "reference"
-    for name, fn in (("cache", scorer.batched), ("batched_nocache", scorer.batched_nocache)):
-        if check(name, fn):
-            path = name
-            break
-    meta["path"] = path
-    meta_path.write_text(json.dumps(meta, indent=1))
-    batch = args.batch or cfg.get("batch", 16)
-    if path == "reference":
-        batch = 1
-        print("falling back to the unbatched reference path", flush=True)
-    t1 = time.time()
-    n_done = 0
-    with out.open("a") as f:
-        for gk in sorted(groups):
-            group = groups[gk]
-            gflat, gbounds, glines = CONTS[gk[1:]]
-            i = 0
-            while i < len(group):
-                chunk = group[i:i + batch]
-                try:
-                    if path == "cache":
-                        lps = scorer.batched([p["prefix_ids"] for p in chunk], [gflat for _ in chunk])
-                    elif path == "batched_nocache":
-                        lps = scorer.batched_nocache([p["prefix_ids"] for p in chunk], [gflat for _ in chunk])
-                    else:
-                        lps = [[scorer.reference(p["prefix_ids"], c) for c in gflat] for p in chunk]
-                except torch.cuda.OutOfMemoryError:
-                    gc.collect()
-                    torch.cuda.empty_cache()
-                    if batch == 1:
-                        raise
-                    batch = max(1, batch // 2)
-                    print(f"OOM; batch -> {batch}", flush=True)
-                    continue
-                for p, lp in zip(chunk, lps):
-                    rec = {k: v for k, v in p.items() if k not in ("system", "user", "prefix_ids", "merged")}
-                    rec.update({"model": cfg["id"], "tag": cfg["tag"], "steer": args.steer_mode if args.steer_vec else None, "lp_variants": lp, "path": path})
-                    rec.update(readout(lp, gbounds, glines))
-                    f.write(json.dumps(rec) + "\n")
-                f.flush()
-                i += len(chunk)
-                n_done += len(chunk)
-                el = time.time() - t1
-                if n_done % (batch * 20) < len(chunk) or n_done >= len(todo):
-                    print(f"  {n_done}/{len(todo)}  {el:.0f}s  {n_done/el:.1f} prompts/s  "
-                          f"eta {(len(todo)-n_done)/max(n_done/el,1e-6)/60:.0f} min", flush=True)
-    el = time.time() - t1
-    meta["timing"] = {"prompts": n_done, "seconds": round(el, 1), "prompts_per_s": round(n_done / max(el, 1e-6), 3)}
-    if to_decode:   # PLAN §4.2: greedy decodes of the spot-check subset, written beside the scores
-        dpath = Path(str(out) + ".decode.jsonl")
-        ddone = set()
-        if dpath.exists():
-            for line in dpath.open():
-                try:
-                    ddone.add(json.loads(line)["key"])
-                except (json.JSONDecodeError, KeyError):
-                    pass
+    if todo:
+        path = "reference"
+        for name, fn in (("cache", scorer.batched), ("batched_nocache", scorer.batched_nocache)):
+            if check(name, fn):
+                path = name
+                break
+        meta["path"] = path
+        meta_path.write_text(json.dumps(meta, indent=1))
+        batch = args.batch or cfg.get("batch", 16)
+        if path == "reference":
+            batch = 1
+            print("falling back to the unbatched reference path", flush=True)
+        dec = {}   # token id -> text, for the stored top tokens
+
+        def top_record(top, first):
+            ids, lps = top
+            for i in ids:
+                if i not in dec:
+                    dec[i] = tok.decode([i])
+            return [[i, dec[i], lp, i in first] for i, lp in zip(ids, lps)]
+
+        t1 = time.time()
+        with out.open("a") as f:
+            for gk in sorted(groups):
+                group = groups[gk]
+                gflat, gbounds, glines = CONTS[gk[1:]]
+                i = 0
+                while i < len(group):
+                    chunk = group[i:i + batch]
+                    try:
+                        if path == "cache":
+                            lps = scorer.batched([p["prefix_ids"] for p in chunk], [gflat for _ in chunk])
+                        elif path == "batched_nocache":
+                            lps = scorer.batched_nocache([p["prefix_ids"] for p in chunk], [gflat for _ in chunk])
+                        else:
+                            lps, tops = [], []
+                            for p in chunk:
+                                lps.append([scorer.reference(p["prefix_ids"], c) for c in gflat])
+                                tops.append(scorer.top[0] if scorer.top else None)
+                            scorer.top = tops
+                    except torch.cuda.OutOfMemoryError:
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                        if batch == 1:
+                            raise
+                        batch = max(1, batch // 2)
+                        print(f"OOM; batch -> {batch}", flush=True)
+                        continue
+                    for k, (p, lp) in enumerate(zip(chunk, lps)):
+                        rec = {k_: v for k_, v in p.items() if k_ not in ("system", "user", "prefix_ids", "merged")}
+                        rec.update({"model": cfg["id"], "tag": cfg["tag"], "steer": args.steer_mode if args.steer_vec else None, "lp_variants": lp, "path": path})
+                        if fmt:
+                            rec["strings_per_option"] = len(STRING_FORMS) * 2
+                            rec["top_tokens"] = top_record(scorer.top[k], FIRST[gk[1:]])
+                        rec.update(rd(lp, gbounds, glines))
+                        f.write(json.dumps(rec) + "\n")
+                    f.flush()
+                    i += len(chunk)
+                    n_done += len(chunk)
+                    el = time.time() - t1
+                    if n_done % (batch * 20) < len(chunk) or n_done >= len(todo):
+                        print(f"  {n_done}/{len(todo)}  {el:.0f}s  {n_done/el:.1f} prompts/s  "
+                              f"eta {(len(todo)-n_done)/max(n_done/el,1e-6)/60:.0f} min", flush=True)
+        meta["timing"] = {"prompts": n_done, "seconds": round(el, 1), "prompts_per_s": round(n_done / max(el, 1e-6), 3)}
+    if dtodo:   # PLAN §4.2: greedy decodes of the spot-check subset, written beside the scores
         with dpath.open("a") as df:
-            for p in to_decode:
-                if p["key"] in ddone:
-                    continue
-                if "prefix_ids" not in p:
-                    text_, _m = render_user_prefix(tok, p["system"], p["user"], cfg)
-                    p["prefix_ids"] = tok(text_, add_special_tokens=False)["input_ids"]
+            for p in dtodo:
                 ids = torch.tensor([p["prefix_ids"]], device=dev)
                 with torch.no_grad():
                     gen = model.generate(input_ids=ids, attention_mask=torch.ones_like(ids), max_new_tokens=args.decode_max_new, do_sample=False)
@@ -477,9 +561,9 @@ def main():
                 lines = option_lines(p["order"], p["numbering"], None if p["optout"] == "none" else p["optout"], optout_text)
                 df.write(json.dumps({"key": p["key"], "item": p["item"], "axis": p.get("axis"), "paraphrase": p["paraphrase"], "forcing": p["forcing"],
                                      "order": p["order"], "numbering": p["numbering"], "optout": p["optout"], "lines": lines, "text": txt[:400]}) + "\n")
-        print(f"decoded {len(to_decode)} spot-check prompts -> {dpath.name}", flush=True)
+        print(f"decoded {len(dtodo)} spot-check prompts -> {dpath.name}", flush=True)
     meta_path.write_text(json.dumps(meta, indent=1))
-    print(f"{cfg['id']} done: {n_done} prompts in {el:.0f}s", flush=True)
+    print(f"{cfg['tag']} done: {n_done} prompts in {el:.0f}s, {len(dtodo)} decodes", flush=True)
     print("SWEEP_DONE", flush=True)
 
 

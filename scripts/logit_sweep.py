@@ -301,12 +301,21 @@ def logsumexp(xs):
 
 
 class Scorer:
-    def __init__(self, model, tok, dev):
+    def __init__(self, model, tok, dev, topk=0):
         self.model, self.tok, self.dev = model, tok, dev
         self.pad = tok.pad_token_id if tok.pad_token_id is not None else (tok.eos_token_id if tok.eos_token_id is not None else 0)
         if isinstance(self.pad, list):
             self.pad = self.pad[0]
         self.logits_to_keep_ok = True
+        # topk > 0: each scoring call also leaves, per prompt, the ids and log-probs of the topk most likely next tokens
+        # after the prefix in self.top (stated_logit's format-coverage check)
+        self.topk, self.top = topk, None
+
+    def _keep_top(self, logp):
+        """logp: (B, vocab) next-token log-probs after the prefixes."""
+        if self.topk:
+            v, ix = logp.topk(self.topk, -1)
+            self.top = [(ix[i].tolist(), v[i].tolist()) for i in range(logp.shape[0])]
 
     def _forward(self, keep=1, **kw):
         if self.logits_to_keep_ok:
@@ -339,6 +348,8 @@ class Scorer:
             ids, mask = ids.to(self.dev), mask.to(self.dev)
             out = self._forward(keep=tmax, input_ids=ids, attention_mask=mask, use_cache=False)
             logp = torch.log_softmax(out.logits.float(), -1)  # kept index j = position P-1+j, which predicts c[j]
+            if r == 0:
+                self._keep_top(logp[:, 0])
             for i in range(B):
                 if r < len(conts[i]):
                     c = conts[i][r]
@@ -354,6 +365,7 @@ class Scorer:
         logits = self.model(input_ids=ids).logits[0].float()
         lp = torch.log_softmax(logits, -1)
         start = len(prefix_ids) - 1
+        self._keep_top(lp[start:start + 1])
         return sum(lp[start + i, cont_ids[i]].item() for i in range(len(cont_ids)))
 
     @torch.inference_mode()
@@ -370,6 +382,7 @@ class Scorer:
         ids, mask, pos = ids.to(self.dev), mask.to(self.dev), pos.to(self.dev)
         out = self._forward(input_ids=ids, attention_mask=mask, position_ids=pos, use_cache=True)
         last = torch.log_softmax(out.logits[:, -1].float(), -1)
+        self._keep_top(last)
         cache = out.past_key_values
         del out
         lps = [[last[i, c[0]].item() for c in conts[i]] for i in range(B)]

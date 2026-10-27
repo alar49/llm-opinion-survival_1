@@ -1,4 +1,5 @@
-"""Regenerate README.md's numbers from results/orderforce.json and results/orderforce_gates.json.  Usage: python3 scripts/make_readme.py"""
+"""Regenerate README.md's numbers from results/orderforce.json and results/orderforce_gates.json (corrected readout), with
+the published registered-estimator numbers from results/registered/ beside them.  Usage: python3 scripts/make_readme.py"""
 import json
 import re
 import statistics as st
@@ -6,6 +7,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 R = json.loads((ROOT / "results" / "orderforce.json").read_text()); G = json.loads((ROOT / "results" / "orderforce_gates.json").read_text())
+REG = ROOT / "results" / "registered"   # pre-amendment outputs, incl. the arm-A identity check (parent-repo rows, not in this repo)
+R0 = json.loads((REG / "orderforce.json").read_text()) if (REG / "orderforce.json").exists() else None
+G0 = json.loads((REG / "orderforce_gates.json").read_text()) if (REG / "orderforce_gates.json").exists() else G
 P, AT, models = R["predictions"], R["axis_table"], R["models"]; rel = [t for t in models if not models[t]["instrument_unreliable"]]
 POL = [a for a in AT if a not in ("fair_month", "sign_color")]
 hard = [a for a in POL if AT[a]["class"] == "hard survivor"]; spin = [a for a in POL if AT[a]["class"] == "spinner"]; mixed = [a for a in POL if AT[a]["class"] == "mixed"]
@@ -19,11 +23,87 @@ for t in rel:
 n = sum(counts.values()); called = counts["called"] + counts["+order"] + counts["+forcing"] + counts["survives all"]
 a6 = P["A6_permutation"]
 dk = [G[t]["dk"]["median_p_optout_F2"] for t in G if G[t]["dk"].get("median_p_optout_F2") is not None]
-ident = [G[t]["identity"].get("max_abs_d_item") for t in G if G[t]["identity"].get("max_abs_d_item") is not None]
+ident = [G0[t]["identity"].get("max_abs_d_item") for t in G0 if G0[t]["identity"].get("max_abs_d_item") is not None]
 dec = [x["agreement"] for t in G for x in G[t].get("decode", {}).values() if x.get("agreement") is not None and not models.get(t, {}).get("instrument_unreliable")]
 f1 = {t: G[t]["validity"]["F1"] for t in G if G[t].get("validity", {}).get("F1") == G[t].get("validity", {}).get("F1")}
 f1_low = sum(1 for v in f1.values() if v < 0.10)
 rows = "\n".join(f"| {a.replace('_', ' ')} | {AT[a]['class']} | {AT[a]['survives all']}/{AT[a]['n']} | {AT[a]['R3_frac']:.2f} | {AT[a]['revealed_called']} |" for a in sorted(POL, key=lambda a: -AT[a]["R3_frac"]))
+
+
+def headline(R_):
+    """The README's headline numbers for one analysis output (used for the registered vs corrected comparison)."""
+    M_, AT_, P_ = R_["models"], R_["axis_table"], R_["predictions"]
+    rel_ = [t for t in M_ if not M_[t]["instrument_unreliable"]]
+    c = {k: 0 for k in ("called", "+order", "+forcing", "survives all", "refusal-gated", "not called", "saturated")}
+    for t in rel_:
+        for a in POL:
+            if M_[t]["axes"].get(a, {}).get("rung"):
+                c[M_[t]["axes"][a]["rung"]] += 1
+    a = P_["A6_permutation"]
+    return {"rel": rel_, "called": c["called"] + c["+order"] + c["+forcing"] + c["survives all"], "order": c["+order"] + c["survives all"],
+            "forcing": c["+forcing"] + c["survives all"], "all": c["survives all"], "null": R_["null_called"],
+            "hard": [x for x in POL if AT_[x]["class"] == "hard survivor"], "spin": [x for x in POL if AT_[x]["class"] == "spinner"],
+            "rho": f"{a['mean_rho_all']:.2f} / {a['mean_rho_surviving']:.2f} / {a['mean_rho_rest']:.2f} (p = {a['p_one_sided']:.3f})",
+            "preds": ", ".join(f"{k} {'holds' if P_[k + ('_ok' if k.startswith('ST') else '')] else 'fails'}" for k in ("SA1", "SA2", "SA3", "ST1", "ST2", "ST3")),
+            "verdict": P_["verdict"]}
+
+
+def moved_text(h0, h1, gained, lost, names):
+    """One paragraph on what the readout correction changed, in words."""
+    one = lambda xs, a, b: a if len(xs) == 1 else b
+    diff = lambda a, b: [x for x in a if x not in b]
+    out = []
+    if gained:
+        out.append(f"{names(gained)} now {one(gained, 'passes', 'pass')} the anchor reliability gate")
+    if lost:
+        out.append(f"{names(lost)} no longer {one(lost, 'passes', 'pass')} it")
+    for xs, verb in ((diff(h1["hard"], h0["hard"]), ("joins the hard survivors", "join the hard survivors")),
+                     (diff(h0["hard"], h1["hard"]), ("drops out of the hard survivors", "drop out of the hard survivors")),
+                     (diff(h0["spin"], h1["spin"]), ("is no longer a spinner", "are no longer spinners")),
+                     (diff(h1["spin"], h0["spin"]), ("becomes a spinner", "become spinners"))):
+        if xs:
+            out.append(f"{names(xs)} {one(xs, *verb)}")
+    same = h0["preds"] == h1["preds"] and h0["verdict"] == h1["verdict"]
+    return (("What moved: " + "; ".join(out) + ". ") if out else "") + \
+        ("Every pre-registered prediction and the decision rule come out the same." if same else
+         f"The pre-registered outcome changes: {h0['preds']} → {h1['preds']}; decision rule \"{h0['verdict']}\" → \"{h1['verdict']}\".")
+
+
+fix = ""
+if R0 is not None:
+    h0, h1 = headline(R0), headline(R)
+    names = lambda xs: (lambda w: ", ".join(w[:-1]) + " and " + w[-1] if len(w) > 1 else (w[0] if w else "none"))([x.replace("_", " ") for x in xs])
+    gained, lost = [t for t in h1["rel"] if t not in h0["rel"]], [t for t in h0["rel"] if t not in h1["rel"]]
+    flagged = [t for t in G if not G[t].get("string_consistency", {}).get("ok", True)]
+    tab = [("instrument-reliable models", len(h0["rel"]), len(h1["rel"])),
+           ("model × issue cells called / + orders / + forcing / survive everything",
+            f"{h0['called']} / {h0['order']} / {h0['forcing']} / {h0['all']}", f"{h1['called']} / {h1['order']} / {h1['forcing']} / {h1['all']}"),
+           ("null issues called", h0["null"], h1["null"]),
+           ("hard survivors", f"{len(h0['hard'])}", f"{len(h1['hard'])}"), ("spinners", f"{len(h0['spin'])}", f"{len(h1['spin'])}"),
+           ("stated vs revealed ρ: all / surviving / rest", h0["rho"], h1["rho"]),
+           ("pre-registered predictions", h0["preds"], h1["preds"]), ("decision rule", f"\"{h0['verdict']}\"", f"\"{h1['verdict']}\"")]
+    fix = f"""## Readout correction (PLAN.md amendment, 2026-10-27)
+
+**The problem.** For each answer option the scorer reads the probability of eight answer strings: the printed number
+("3"), the number with its bracket ("3)"), the full line ("3) Agree") and the bare label ("Agree"), each with and
+without a leading space. The registered readout added these probabilities together. But the strings are nested: the
+tokenizer splits "3)" into "3" followed by ")", so every reply that starts "3)" or "3) Agree" is already included in
+the probability of "3". Adding them counted the same answer up to three times. The factor depends on how the model
+tends to continue after the number, which differs between options, layouts and models, so the comparison between
+options was distorted, not just rescaled. The registered answer mass made the opposite mistake: it kept only the most
+likely string per option, so a model that sometimes opens with "3" and sometimes with "Agree" was undercounted.
+
+**The fix.** An option's probability is now the sum over the four strings that cannot contain one another, "3", " 3",
+"Agree" and " Agree" (each starts with a different token), and answer mass is the sum of those over all listed options
+([scripts/readout.py](scripts/readout.py)). Every scored prompt stores the log-probability of each string, so all
+numbers were recomputed from the stored rows and no model was re-run. `--estimator registered` reproduces the
+published numbers exactly; they are kept in [results/registered/](results/registered/). The corrected readout also
+avoids the longer strings, whose scores are internally inconsistent for {len(flagged)} models ({names(flagged)}):
+"3) Agree" sometimes scored more probable than "3)", which is impossible (`orderforce_gates.md`, check 6).
+
+| | registered | corrected (above) |
+|---|---|---|
+""" + "\n".join(f"| {a} | {b} | {c} |" for a, b, c in tab) + "\n\n" + moved_text(h0, h1, gained, lost, names) + "\n\n"
 # OLMo 2 7B training stages (results/olmo2/; run_olmo2.sh, olmo2_explore.py), only once they exist
 O = ROOT / "results" / "olmo2"
 olmo = ""
@@ -100,9 +180,10 @@ policy statements on 17 county-level issues, the 62 Political Compass propositio
 - the **forcing level** (nothing appended / "Only answer with the label." / the paper's levels 3 and 5),
 - an explicit **"5) No opinion"** option (last, crossed with the four orders, and listed first as a position control).
 
-3,788 prompts per model; the answer is read from teacher-forced label log-probabilities, checked against greedy decodes
-under the permuted layouts (the written option matches the teacher-forced choice in {min(dec):.2f}–{max(dec):.2f} of named decodes among
-reliable models) and against an earlier fixed-order run of the same items (max mean |Δ p_agree| {max(ident):.2f}).
+3,788 prompts per model; the answer is read from teacher-forced label log-probabilities (with the readout correction
+described below), checked against greedy decodes under the permuted layouts (the written option matches the
+teacher-forced choice in {min(dec):.2f}–{max(dec):.2f} of named decodes among reliable models) and against an earlier fixed-order run
+of the same items (max mean |Δ p_agree| {max(ident):.2f}, registered readout).
 
 1. **Re-ordering the options spins the raw stated answer more than rewording does.** The mean range of an item's score
    (Likert −2…+2) across the four orders is **{sp('order_F3'):.2f}**, against {sp('paraphrase_4'):.2f} across four paraphrases, {sp('forcing'):.2f} across forcing
@@ -132,14 +213,14 @@ ST1 and ST3 hold, ST2 fails (the paired readout's order range is {P['ST2']['mean
 Full tables: [results/orderforce.md](results/orderforce.md); rung heatmap [results/orderforce_ladder.png](results/orderforce_ladder.png);
 spin budget per model [results/orderforce_spin.png](results/orderforce_spin.png); pilot gates [results/orderforce_gates.md](results/orderforce_gates.md).
 
-## What this does and does not claim
+{fix}## What this does and does not claim
 
 "Survives" means invariant to these manipulations (four orders, two numberings, these forcing texts, one opt-out
 wording, four paraphrases), not a true preference. The pair statements are matched-strength opposing policies, not
 negations. Unforced free-text answers are not measured; the refusal-gated class is reported, not scored. Stated scores
 and revealed log-odds are not commensurable, so the stated-vs-revealed link is by rank and sign only. Small models are
 over-represented. Everything else is in [PLAN.md](PLAN.md) §10–11, written before the panel ran, with the pilot's
-outcomes and two pre-panel amendments appended.
+outcomes, two pre-panel amendments and the post-panel readout correction appended.
 
 {olmo}## Reproduce
 

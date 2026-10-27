@@ -6,3 +6,4 @@ CLAUDE.md
 results/olmo2/raw/*.jsonl
 olmo2_results.tgz
 runpodctl.exe
+results/olmo2_v2/raw/*.jsonl

@@ -14,7 +14,7 @@ survive — and do the survivors agree with what the model does when it is not a
 
 ## Result
 
-19 open models (1B–32B, ten families; 17 pass the instrument-reliability gates) answered 34 opposing-pair
+19 open models (1B–32B, ten families; 18 pass the instrument-reliability gates) answered 34 opposing-pair
 policy statements on 17 county-level issues, the 62 Political Compass propositions, 4 valence-free null statements and
 12 factual anchors, under the paper's four options and forcing texts, while we varied:
 
@@ -23,53 +23,86 @@ policy statements on 17 county-level issues, the 62 Political Compass propositio
 - the **forcing level** (nothing appended / "Only answer with the label." / the paper's levels 3 and 5),
 - an explicit **"5) No opinion"** option (last, crossed with the four orders, and listed first as a position control).
 
-3,788 prompts per model; the answer is read from teacher-forced label log-probabilities, checked against greedy decodes
-under the permuted layouts (the written option matches the teacher-forced choice in 0.67–1.00 of named decodes among
-reliable models) and against an earlier fixed-order run of the same items (max mean |Δ p_agree| 0.26).
+3,788 prompts per model; the answer is read from teacher-forced label log-probabilities (with the readout correction
+described below), checked against greedy decodes under the permuted layouts (the written option matches the
+teacher-forced choice in 0.67–1.00 of named decodes among reliable models) and against an earlier fixed-order run
+of the same items (max mean |Δ p_agree| 0.26, registered readout).
 
 1. **Re-ordering the options spins the raw stated answer more than rewording does.** The mean range of an item's score
-   (Likert −2…+2) across the four orders is **1.26**, against 0.32 across four paraphrases, 1.07 across forcing
-   levels and 0.52 between the two numberings. Models mostly answer by printed number and list position.
+   (Likert −2…+2) across the four orders is **1.25**, against 0.30 across four paraphrases, 1.06 across forcing
+   levels and 0.53 between the two numberings. Models mostly answer by printed number and list position.
 2. **A paired directional readout survives.** Scoring each issue as the difference between its two opposing statements
-   cancels acquiescence and position bias by construction. Of 289 model × issue cells, 205 are called at the paper's
-   standard forced format; 171 of those keep their direction across every order and numbering, 200 across forcing and the
-   opt-out, and **168 survive everything**. The two null issues are called in 1 of 34 cells.
-3. **A fixed set of topics survives.** Hard survivors (top rung in ≥ 2/3 of reliable models): agi limitations, state surveillance, energy, housing zoning, drugs, transit, trans sports.
-   Spinners (< 1/3): property tax, guns, police funding, schools, vaccines, unions. Mixed: abortion, immigration, minimum wage, voting.
+   cancels acquiescence and position bias by construction. Of 306 model × issue cells, 222 are called at the paper's
+   standard forced format; 187 of those keep their direction across every order and numbering, 217 across forcing and the
+   opt-out, and **184 survive everything**. The two null issues are called in 1 of 36 cells.
+3. **A fixed set of topics survives.** Hard survivors (top rung in ≥ 2/3 of reliable models): agi limitations, abortion, state surveillance, energy, housing zoning, drugs, transit, trans sports.
+   Spinners (< 1/3): property tax, police funding, schools, unions. Mixed: immigration, guns, minimum wage, vaccines, voting.
 4. **Survival predicts validity.** Within model, the stated direction and the lean the same model *reveals* in an
-   independent candidate-choice conjoint (from the parent project) agree with Spearman ρ 0.67 over all 17 issues,
-   **0.73 on the surviving issues and 0.43 on the rest** (means over the 15 models with at least three issues of each kind; permutation of the survival labels, one-sided p = 0.001).
-   At matched effect size (top |d| tertile) survival is 0.97 vs 0.96, so part of "survival" is extremity.
-5. **The "No opinion" out is taken unevenly** (median share 0.00–0.90 by model, mean uptake 0.27), while
+   independent candidate-choice conjoint (from the parent project) agree with Spearman ρ 0.65 over all 17 issues,
+   **0.70 on the surviving issues and 0.37 on the rest** (means over the 15 models with at least three issues of each kind; permutation of the survival labels, one-sided p = 0.001).
+   At matched effect size (top |d| tertile) survival is 0.97 vs 0.97, so part of "survival" is extremity.
+5. **The "No opinion" out is taken unevenly** (median share 0.00–0.89 by model, mean uptake 0.28), while
    unforced answer mass stays below 0.10 for 17 of 19 models: models that state opinions do so as soon as they are told
    to answer with a label, and most keep stating them when a legitimate out is offered.
 
 The pre-registered decision rule ([PLAN.md](PLAN.md) §8) returns **"some topics stable"**: the spinning-arrow
-prediction SA1 holds (re-ordering spins ≥ 0.4 units), SA2 and SA3 fail (7 hard survivors; survival adds validity),
-ST1 and ST3 hold, ST2 fails (the paired readout's order range is 0.22 vs 0.39 for raw items, not under half).
+prediction SA1 holds (re-ordering spins ≥ 0.4 units), SA2 and SA3 fail (8 hard survivors; survival adds validity),
+ST1 and ST3 hold, ST2 fails (the paired readout's order range is 0.21 vs 0.38 for raw items, not under half).
 
 | issue | class | models at the top rung | share | models with a called revealed lean |
 |---|---|---|---|---|
-| state surveillance | hard survivor | 17/17 | 1.00 | 7 |
-| trans sports | hard survivor | 17/17 | 1.00 | 8 |
-| energy | hard survivor | 15/17 | 0.88 | 8 |
-| drugs | hard survivor | 15/17 | 0.88 | 5 |
-| housing zoning | hard survivor | 14/17 | 0.82 | 3 |
-| transit | hard survivor | 14/17 | 0.82 | 3 |
-| agi limitations | hard survivor | 12/17 | 0.71 | 3 |
-| abortion | mixed | 11/17 | 0.65 | 3 |
-| immigration | mixed | 10/17 | 0.59 | 1 |
-| minimum wage | mixed | 10/17 | 0.59 | 5 |
-| voting | mixed | 9/17 | 0.53 | 7 |
-| guns | spinner | 5/17 | 0.29 | 1 |
-| vaccines | spinner | 5/17 | 0.29 | 2 |
-| unions | spinner | 5/17 | 0.29 | 4 |
-| property tax | spinner | 4/17 | 0.24 | 3 |
-| schools | spinner | 4/17 | 0.24 | 6 |
-| police funding | spinner | 1/17 | 0.06 | 1 |
+| state surveillance | hard survivor | 18/18 | 1.00 | 7 |
+| trans sports | hard survivor | 18/18 | 1.00 | 8 |
+| energy | hard survivor | 16/18 | 0.89 | 8 |
+| drugs | hard survivor | 16/18 | 0.89 | 5 |
+| transit | hard survivor | 15/18 | 0.83 | 3 |
+| housing zoning | hard survivor | 14/18 | 0.78 | 3 |
+| agi limitations | hard survivor | 13/18 | 0.72 | 3 |
+| abortion | hard survivor | 12/18 | 0.67 | 3 |
+| immigration | mixed | 11/18 | 0.61 | 1 |
+| minimum wage | mixed | 11/18 | 0.61 | 5 |
+| voting | mixed | 10/18 | 0.56 | 7 |
+| vaccines | mixed | 8/18 | 0.44 | 2 |
+| guns | mixed | 6/18 | 0.33 | 1 |
+| property tax | spinner | 5/18 | 0.28 | 3 |
+| unions | spinner | 5/18 | 0.28 | 4 |
+| schools | spinner | 4/18 | 0.22 | 6 |
+| police funding | spinner | 2/18 | 0.11 | 1 |
 
 Full tables: [results/orderforce.md](results/orderforce.md); rung heatmap [results/orderforce_ladder.png](results/orderforce_ladder.png);
 spin budget per model [results/orderforce_spin.png](results/orderforce_spin.png); pilot gates [results/orderforce_gates.md](results/orderforce_gates.md).
+
+## Readout correction (PLAN.md amendment, 2026-10-27)
+
+**The problem.** For each answer option the scorer reads the probability of eight answer strings: the printed number
+("3"), the number with its bracket ("3)"), the full line ("3) Agree") and the bare label ("Agree"), each with and
+without a leading space. The registered readout added these probabilities together. But the strings are nested: the
+tokenizer splits "3)" into "3" followed by ")", so every reply that starts "3)" or "3) Agree" is already included in
+the probability of "3". Adding them counted the same answer up to three times. The factor depends on how the model
+tends to continue after the number, which differs between options, layouts and models, so the comparison between
+options was distorted, not just rescaled. The registered answer mass made the opposite mistake: it kept only the most
+likely string per option, so a model that sometimes opens with "3" and sometimes with "Agree" was undercounted.
+
+**The fix.** An option's probability is now the sum over the four strings that cannot contain one another, "3", " 3",
+"Agree" and " Agree" (each starts with a different token), and answer mass is the sum of those over all listed options
+([scripts/readout.py](scripts/readout.py)). Every scored prompt stores the log-probability of each string, so all
+numbers were recomputed from the stored rows and no model was re-run. `--estimator registered` reproduces the
+published numbers exactly; they are kept in [results/registered/](results/registered/). The corrected readout also
+avoids the longer strings, whose scores are internally inconsistent for 6 models (gemma-3-12b-it, gemma-3-1b-it, gemma-3-27b-it, gemma-3-4b-it, gpt-oss-20b and qwen3-8b):
+"3) Agree" sometimes scored more probable than "3)", which is impossible (`orderforce_gates.md`, check 6).
+
+| | registered | corrected (above) |
+|---|---|---|
+| instrument-reliable models | 17 | 18 |
+| model × issue cells called / + orders / + forcing / survive everything | 205 / 171 / 200 / 168 | 222 / 187 / 217 / 184 |
+| null issues called | 1 | 1 |
+| hard survivors | 7 | 8 |
+| spinners | 6 | 4 |
+| stated vs revealed ρ: all / surviving / rest | 0.67 / 0.73 / 0.43 (p = 0.001) | 0.65 / 0.70 / 0.37 (p = 0.001) |
+| pre-registered predictions | SA1 holds, SA2 fails, SA3 fails, ST1 holds, ST2 fails, ST3 holds | SA1 holds, SA2 fails, SA3 fails, ST1 holds, ST2 fails, ST3 holds |
+| decision rule | "some topics stable" | "some topics stable" |
+
+What moved: ministral-3-8b now passes the anchor reliability gate; abortion joins the hard survivors; guns and vaccines are no longer spinners. Every pre-registered prediction and the decision rule come out the same.
 
 ## What this does and does not claim
 
@@ -78,7 +111,7 @@ wording, four paraphrases), not a true preference. The pair statements are match
 negations. Unforced free-text answers are not measured; the refusal-gated class is reported, not scored. Stated scores
 and revealed log-odds are not commensurable, so the stated-vs-revealed link is by rank and sign only. Small models are
 over-represented. Everything else is in [PLAN.md](PLAN.md) §10–11, written before the panel ran, with the pilot's
-outcomes and two pre-panel amendments appended.
+outcomes, two pre-panel amendments and the post-panel readout correction appended.
 
 ## Extension: OLMo 2 7B across training stages
 

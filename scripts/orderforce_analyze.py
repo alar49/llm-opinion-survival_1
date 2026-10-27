@@ -7,7 +7,9 @@ Per (model, axis): d(cell) = (p_agree(report level) − p_agree(other level)) / 
 Cluster bootstrap over the paraphrase indices (REPS), drawn jointly across cells so every contrast is paired.
 Ladder: R0 CALLED (reference cell O1/F3/positional: CI excludes 0, |d| ≥ FLOOR, BH q=0.01 over the 19 axes);
 R1 SURVIVES ORDER+NUMBERING; R2 SURVIVES FORCING+OPT-OUT; R3 = all; plus the refusal-gated and saturated classes.
-Writes results/orderforce.{md,json} and orderforce_ladder.png.   Usage: python3 scripts/orderforce_analyze.py [--floor 0.10] [--raw results/raw] [--out results]
+Readout fields are recomputed with the disjoint estimator by default (scripts/readout.py; PLAN.md amendment 2026-10-27);
+--estimator registered uses the fields as stored at scoring time.
+Writes results/orderforce.{md,json} and orderforce_ladder.png.   Usage: python3 scripts/orderforce_analyze.py [--floor 0.10] [--raw results/raw] [--out results] [--estimator disjoint]
 """
 import argparse
 import glob
@@ -22,6 +24,9 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from readout import ESTIMATORS, load  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 D = ROOT / "results" / "raw"
@@ -38,19 +43,6 @@ INK, MUTED, GRID, SURF = "#0b0b0b", "#52514e", "#e6e5e0", "#ffffff"
 RUNG_COL = {"not called": "#f1f0ec", "called": "#c9d7ee", "+order": "#8fb3e3", "+forcing": "#5f94d6", "survives all": "#1f5fb8", "refusal-gated": "#e9c6b4", "saturated": "#b9b7b2"}
 RUNGS = ["not called", "called", "+order", "+forcing", "survives all", "refusal-gated", "saturated"]
 NAME = {}
-
-
-def load(path):
-    import gzip
-    rows = {}
-    opener = gzip.open if str(path).endswith(".gz") else open
-    for l in opener(path, "rt"):
-        try:
-            r = json.loads(l)
-        except json.JSONDecodeError:
-            continue
-        rows[r["key"]] = r
-    return list(rows.values())
 
 
 def other(axis, level):
@@ -110,6 +102,7 @@ def main():
     ap.add_argument("--q", type=float, default=0.01)
     ap.add_argument("--raw", default=str(D), help="directory of orderforce_<tag>.jsonl[.gz] files")
     ap.add_argument("--out", default=str(OUT), help="directory holding orderforce_gates.json; outputs go here")
+    ap.add_argument("--estimator", default="disjoint", choices=ESTIMATORS, help="option readout (scripts/readout.py)")
     args = ap.parse_args()
     FLOOR = args.floor
     raw_dir, out_dir = Path(args.raw), Path(args.out)
@@ -118,12 +111,12 @@ def main():
     anchors = {a["id"]: a["expected"] for a in json.loads((ROOT / "data" / "orderforce_anchors.json").read_text())}
     sweep = json.loads((ROOT / "data" / "sweep_summary.json").read_text())   # revealed (conjoint) leans from the parent repo
     rng = np.random.default_rng(SEED)
-    res = {"floor": FLOOR, "models": {}}
+    res = {"floor": FLOOR, "estimator": args.estimator, "models": {}}
     for f in sorted(set(glob.glob(str(raw_dir / "orderforce_*.jsonl")) + glob.glob(str(raw_dir / "orderforce_*.jsonl.gz")))):
         if ".decode.jsonl" in f or (f.endswith(".jsonl") and Path(f + ".gz").exists()):
             continue
         tag = Path(f).name[len("orderforce_"):].replace(".jsonl.gz", "").replace(".jsonl", "")
-        rows = load(f)
+        rows = load(f, args.estimator)
         T, wmean = model_tables(rows, rng)
         g = gates.get(tag, {})
         numbering_limited = not g.get("anchor_gates", {}).get("canonical_ok", True)
@@ -418,7 +411,8 @@ def main():
     f2 = lambda x: "—" if x is None or (isinstance(x, float) and x != x) else f"{x:+.2f}" if isinstance(x, float) else str(x)
     L = [f"# Order, forcing and the opt-out: which stated topic preferences survive? (floor {FLOOR}, q {args.q})", "",
          f"Models: {len(tags)} ({len(reliable)} instrument-reliable). d = (p_agree(report level) − p_agree(other level))/2 at the reference cell (paper order, forcing 3), "
-         f"4 paraphrases, cluster bootstrap over paraphrases. Null-axis calibration: {null_called} called null cells of {2 * len(reliable)} ({'OK' if res['calibration_ok'] else 'FAILED: rerun at a doubled floor'}).", "",
+         f"4 paraphrases, cluster bootstrap over paraphrases. Null-axis calibration: {null_called} called null cells of {2 * len(reliable)} ({'OK' if res['calibration_ok'] else 'FAILED: rerun at a doubled floor'}). "
+         f"Readout: {args.estimator} estimator (scripts/readout.py).", "",
          "## A1 Topic survival", "", "| axis | class | n | not called | refusal-gated | called | +order | +forcing | survives all | saturated | mean d_ref | revealed-called models |", "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for axis in AXES:
         a = axis_tab[axis]
