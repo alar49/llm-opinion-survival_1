@@ -115,33 +115,51 @@ outcomes, two pre-panel amendments and the post-panel readout correction appende
 
 ## Extension: OLMo 2 7B across training stages
 
-The same 3,788 prompts were scored on one model at each training stage: OLMo 2 7B base → SFT → DPO → Instruct (RLVR). The
-base model takes its post-trained checkpoints' chat template, so all four see token-identical prompts and every
-contrast between stages is paired. Full write-up: [results/olmo2/REPORT.md](results/olmo2/REPORT.md). Beyond the
-pre-registered gates, these analyses are exploratory: they were not pre-registered.
+OLMo 2 7B was surveyed at each training stage: base → SFT → DPO → Instruct (RLVR). Each stage answered 4,288 prompts: the
+panel's 3,788 plus two arms. The prompts are plain completions ending in "Answer:", with no chat template, so that the
+base model is surveyed in a format it can answer. All four stages see token-identical prompts, so every contrast between
+stages is paired. The design, the hypotheses and their decision rules were pre-registered in [PLAN_OLMO2.md](PLAN_OLMO2.md)
+before any prompt was scored.
 
-![OLMo 2 7B stages](results/olmo2/olmo2_figure.png)
+- **Full write-up:** [results/olmo2_v2/REPORT.md](results/olmo2_v2/REPORT.md).
+- **The same data in this README's survival framing:** [results/olmo2_v2/REPORT_survival.md](results/olmo2_v2/REPORT_survival.md).
+- **Scope:** one model family at one size, so be cautious about generalising to other families.
+- **Superseded:** an earlier chat-template run (`results/olmo2/`) is not reported as findings.
 
-1. **No stage can be surveyed at the paper's format.** Anchor discrimination at the reference cell is
-   -0.04 → 0.24 → 0.25 → 0.21, against
-   0.72–1.93 for the 17 reliable panel models (gate 0.5). All four are instrument-unreliable,
-   so the survival ladder is not applied. The base model puts 0.02 of
-   its probability on an answer option and names one in 1 of its 72 greedy decodes.
-2. **SFT creates the survey-taking behaviour; DPO and RLVR amplify it.** Answer mass at forcing 3 goes
-   0.02 → 0.55 → 0.70 → 0.86. The post-trained stages pick a
-   moderate option on the third line whatever the statement says: the pull of the list position grows
-   1.8 → 2.7 → 2.9 log units. At the paper's layout, that gives
-   "3) Agree" 0.75–0.83 of the answer.
-3. **Where the content gets through, the stages agree.** In the three layouts where each label
-   keeps its number, every post-trained stage reads the anchors (D 0.53–1.02).
-   - They call 8 (SFT), 11 (DPO) and 10 (Instruct) of the 17 issues, and
-     the null issues are never called.
-   - Their issue profiles correlate at ρ 0.95–0.99, and no issues
-     shift between stages.
-   - The stated directions are set at SFT, and neither DPO nor RLVR changes them.
-4. **They follow the panel, more weakly.** Rank correlation with the mean of 16 panel models in the
-   same layouts: 0.79 (SFT), 0.77 (DPO) and 0.65 (Instruct). OLMo 2 leans the
-   other way from most of the panel on property tax, immigration, guns and police funding; Olmo 3.1 32B sides with the panel on all four.
+![OLMo 2 7B stages](results/olmo2_v2/olmo2_figure.png)
+
+1. **Every stage takes the survey as a completion.** Answer mass at the paper's format is
+   0.97 → 0.94 → 0.99 → 1.00, and 576 of 576 greedy decodes name an option by number.
+   - The base model reads the statements, but weakly: its 12 factual anchors separate by C = 0.54
+     log-odds (registered threshold 0.5).
+   - SFT, DPO and Instruct separate them by 0.68, 1.95 and 1.92.
+2. **Post-training adds a pull toward agreeing and toward the lower lines.**
+   - Mean agreement at the paper's format goes 0.61 → 0.82 → 0.95 → 0.96.
+   - Re-ordering the options moves the raw answer by 0.29 → 0.90 → 1.47 → 1.60 Likert
+     units, against 0.10–0.16 across paraphrases.
+   - No stage passes the panel's reliability gate (anchor D 0.37 → 0.27 → 0.25 → 0.15).
+     With agreement at its ceiling, the paired readout in probability finds almost nothing.
+3. **Stated directions (registered, H5a): contradicted.** H5a measures a stance relative to the stage's own
+   true-vs-false separation (d_rel, margin ±0.2). Equivalent / different / inconclusive issues:
+   - SFT → DPO: 9 / 3 / 5, with state surveillance, energy and trans sports different;
+   - DPO → Instruct: 16 / 0 / 1.
+
+   Post hoc, most of the SFT → DPO change is one uniform rescaling: stances ×2.15 in log-odds,
+   facts ×2.88. Only energy changes beyond it, and no direction flips.
+4. **The stance pattern is already faintly present in the base model.** Registered H5b: "stance present before post-training", with
+   ρ = 0.57 [0.42, 0.64] against SFT. Post hoc, SFT's stances are
+   3.3 times the base model's in log-odds.
+5. **Read in log-odds, a fixed set of topics survives re-ordering and forcing (post hoc).** Under the panel's ladder
+   rules with d_LO in place of d:
+   - 5, 6 and 6 issues survive everything for SFT, DPO and Instruct respectively;
+   - in all three stages: state surveillance, drugs, transit and trans sports;
+   - from DPO on, also: housing zoning and voting;
+   - never called by any stage: property tax, abortion, police funding, schools and unions.
+
+**Pre-registered predictions:** H1a, H4a, H4b and H6 held, and H2a, H3 and H5a did not.
+
+**One measurement failed.** Under the ending "The answer is", the base model writes a colon before its answer, which
+the readout does not capture. That ending is reported as not measured.
 
 ## Reproduce
 
@@ -151,18 +169,19 @@ bash run.sh google/gemma-3-4b-it         # one model: ~3,800 prompts, a few minu
 python3 scripts/orderforce_gates.py      # launch gates (decode agreement, opt-out mass, anchors)
 python3 scripts/orderforce_analyze.py    # ladder, spin budget, join with the revealed leans, predictions
 python3 scripts/plot_orderforce.py       # the summary figure
-bash run_olmo2.sh                        # OLMo 2 7B base / SFT / DPO / Instruct, analysed apart in results/olmo2/
-python3 scripts/olmo2_explore.py         # OLMo 2 exploratory analyses (CPU): results/olmo2/olmo2_explore.md
+bash run_olmo2_v2.sh                     # OLMo 2 7B base / SFT / DPO / Instruct (PLAN_OLMO2.md), analysed apart in results/olmo2_v2/
+python3 scripts/olmo2_posthoc.py         # OLMo 2 post-hoc analyses (CPU): results/olmo2_v2/olmo2_posthoc.md
 python3 scripts/plot_olmo2.py            # OLMo 2 summary figure
 ```
 
-`run_olmo2.sh` scores the four OLMo 2 7B training stages at pinned revisions on one GPU (≥ 24 GB, ~75 GB of weights).
-The base model ships no chat template, so it takes the one its SFT, DPO and Instruct checkpoints share and all four see
-token-identical prompts. Gates and ladder run on these four alone in `results/olmo2/`, followed by
-`scripts/olmo2_compare.py`: a paired bootstrap of each issue's direction between stages, plus answer rates, opt-out
-uptake and order spin. `scripts/olmo2_explore.py` adds the analyses of the report: written answers, the position /
-number / label decomposition, the anchor map, and directions in the layouts every post-trained stage reads, set against
-the panel. The conjoint leans in `data/sweep_summary.json` do not cover OLMo 2, so it has no stated-vs-revealed join.
+`run_olmo2_v2.sh` scores the four OLMo 2 7B training stages at pinned revisions on one GPU (≥ 24 GB, ~73 GB of
+weights), plus the base model under three more prompt endings.
+- **Prompts:** every prompt is a plain completion with no chat template, and all four stages see token-identical prompts.
+- **Pipeline:** the gates and the panel's ladder run on these seven runs alone in `results/olmo2_v2/`. They are
+  followed by `scripts/olmo2_compare.py` (paired stage contrasts and equivalence tests, H4–H6) and
+  `scripts/olmo2_explore.py` (answering, the position / number / label decomposition and content effects, H1–H3).
+- **Post-hoc analyses:** `scripts/olmo2_posthoc.py` adds those of the report, labelled as such.
+- **No stated-vs-revealed join:** the conjoint leans in `data/sweep_summary.json` do not cover OLMo 2.
 
 `results/raw/` holds every scored prompt for the 19 models (gzip JSONL, one row per prompt with the per-label log-probs)
 and the greedy decodes of the spot-check subset. `data/sweep_summary.json` carries the revealed leans from the parent

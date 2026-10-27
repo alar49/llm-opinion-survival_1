@@ -104,55 +104,83 @@ avoids the longer strings, whose scores are internally inconsistent for {len(fla
 | | registered | corrected (above) |
 |---|---|---|
 """ + "\n".join(f"| {a} | {b} | {c} |" for a, b, c in tab) + "\n\n" + moved_text(h0, h1, gained, lost, names) + "\n\n"
-# OLMo 2 7B training stages (results/olmo2/; run_olmo2.sh, olmo2_explore.py), only once they exist
-O = ROOT / "results" / "olmo2"
+# OLMo 2 7B training stages, v2 (results/olmo2_v2/; run_olmo2_v2.sh, olmo2_compare / olmo2_explore / olmo2_posthoc.py), only once they exist
+O = ROOT / "results" / "olmo2_v2"
 olmo = ""
-if (O / "olmo2_explore.json").exists() and (O / "olmo2_compare.json").exists():
-    X = json.loads((O / "olmo2_explore.json").read_text(encoding="utf-8")); C = json.loads((O / "olmo2_compare.json").read_text(encoding="utf-8"))
-    tg, post = X["tags"], list(X["E4"]["stages"]); E4s, pm = X["E4"]["stages"], X["E5"]["panel_mean"]
-    nm = {t: {"base": "base", "sft": "SFT", "dpo": "DPO", "instruct": "Instruct"}.get(t.split("-")[-1], t) for t in tg}
-    seq = lambda f, ts: " → ".join(f(t) for t in ts)
-    pdr = list(X["E3"]["panel_D_reference"].values()); dcell = [X["E3"]["D"][t][c] for t in post for c in X["E4"]["cells"]]
-    d0 = X["E1_decodes"][tg[0]]; named0 = d0["counts"].get("number", 0) + d0["counts"].get("label", 0)
-    agree3 = [X["E2"][t]["shares"]["paper|positional|3|none"][2] for t in post]
-    rhos = [P["profile_spearman"]["mean"] for P in X["E4"]["pairs"].values()]
-    shifts = sum(bool(v and v["shift"]) for P in X["E4"]["pairs"].values() for v in P["d"].values())
-    flips = [a for a in POL if all((E4s[t]["d"][a]["mean"] > 0) != (pm[a] > 0) for t in post)]
-    o3 = X["E5"]["olmo3"]
-    o3_with_panel = o3 is not None and all((o3[a] > 0) == (pm[a] > 0) for a in flips)
-    each = lambda vals, ts: ", ".join(f"{v} ({nm[t]})" for v, t in zip(vals[:-1], ts[:-1])) + f" and {vals[-1]} ({nm[ts[-1]]})"
-    word = lambda n: ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"][n] if n < 10 else str(n)
-    nnull = sum(E4s[t]["d"][a]["called"] for t in post for a in ("fair_month", "sign_color"))
-    flip_txt = ", ".join(a.replace("_", " ") for a in flips[:-1]) + (f" and {flips[-1].replace('_', ' ')}" if len(flips) > 1 else (flips[0].replace("_", " ") if flips else ""))
+if all((O / f).exists() for f in ("olmo2_compare.json", "olmo2_explore.json", "olmo2_posthoc.json", "orderforce.json")):
+    rd = lambda f: json.loads((O / f).read_text(encoding="utf-8"))
+    C, X, PH, OF = rd("olmo2_compare.json"), rd("olmo2_explore.json"), rd("olmo2_posthoc.json"), rd("orderforce.json")
+    S4, POST4 = ["base", "SFT", "DPO", "Instruct"], ["SFT", "DPO", "Instruct"]
+    TAG = {s: f"olmo2-7b-{s.lower()}-answer" for s in S4}   # ending A, the one all four stages share
+    sm = C["summary"]
+    seq = lambda f, ss=S4: " → ".join(f(s) for s in ss)
+    join = lambda w: ", ".join(w[:-1]) + " and " + w[-1] if len(w) > 1 else (w[0] if w else "none")
+    nm = lambda xs: join([x.replace("_", " ") for x in xs])
+    pair = lambda p: C["H5"]["H5a"]["pairs"][p]["d_rel ±0.2"]
+    h5_counts = lambda p: "{equivalent} / {different} / {inconclusive}".format(**pair(p)["counts"])
+    diffs = [a for a, v in pair("SFT->DPO")["axes"].items() if v and v.get("class") == "different"]
+    P3 = PH["P3"]["SFT->DPO"]
+    specific = [a for a, v in P3["issues"].items() if v["issue_specific"]]
+    rho = C["H5"]["H5b"]["spearman_d_lo"]
+    lad = {s: {a: PH["P7"][s]["d_lo"]["axes"][a]["rung"] for a in POL} for s in POST4}
+    surv = {s: [a for a in POL if lad[s][a] == "survives all"] for s in POST4}
+    surv_all = [a for a in POL if all(a in surv[s] for s in POST4)]
+    surv_late = [a for a in POL if a not in surv_all and all(a in surv[s] for s in ("DPO", "Instruct"))]
+    never = [a for a in POL if all(lad[s][a] == "not called" for s in POST4)]
+    ndec = sum(X["decodes"][TAG[s]]["n"] for s in S4)
+    nnum = sum(X["decodes"][TAG[s]]["counts"].get("number", 0) for s in S4)
+    para = [OF["models"][TAG[s]]["spin"]["paraphrase_4"] for s in S4]
+    held = {"H1a": X["H1"]["H1a"]["decision"] == "supported", "H2a": X["H2"]["H2a"] == "holds",
+            "H3": all(X["H3"][s]["class"] == "saturation" for s in POST4), "H4a": C["H4"]["H4a"]["decision"] == "supported",
+            "H4b": C["H4"]["H4b"]["decision"] == "supported", "H5a": C["H5"]["H5a"]["decision"] == "supported",
+            "H6": all(C["H6"][s]["decision"] == "holds" for s in POST4)}
     olmo = f"""## Extension: OLMo 2 7B across training stages
 
-The same 3,788 prompts were scored on one model at each training stage: OLMo 2 7B {seq(lambda t: nm[t], tg)} (RLVR). The
-base model takes its post-trained checkpoints' chat template, so all four see token-identical prompts and every
-contrast between stages is paired. Full write-up: [results/olmo2/REPORT.md](results/olmo2/REPORT.md). Beyond the
-pre-registered gates, these analyses are exploratory: they were not pre-registered.
+OLMo 2 7B was surveyed at each training stage: {seq(lambda s: s)} (RLVR). Each stage answered 4,288 prompts: the
+panel's 3,788 plus two arms. The prompts are plain completions ending in "Answer:", with no chat template, so that the
+base model is surveyed in a format it can answer. All four stages see token-identical prompts, so every contrast between
+stages is paired. The design, the hypotheses and their decision rules were pre-registered in [PLAN_OLMO2.md](PLAN_OLMO2.md)
+before any prompt was scored.
 
-![OLMo 2 7B stages](results/olmo2/olmo2_figure.png)
+- **Full write-up:** [results/olmo2_v2/REPORT.md](results/olmo2_v2/REPORT.md).
+- **The same data in this README's survival framing:** [results/olmo2_v2/REPORT_survival.md](results/olmo2_v2/REPORT_survival.md).
+- **Scope:** one model family at one size, so be cautious about generalising to other families.
+- **Superseded:** an earlier chat-template run (`results/olmo2/`) is not reported as findings.
 
-1. **No stage can be surveyed at the paper's format.** Anchor discrimination at the reference cell is
-   {seq(lambda t: f"{C['stages'][t]['metrics']['anchor discrimination D (reference)']['mean']:.2f}", tg)}, against
-   {min(pdr):.2f}–{max(pdr):.2f} for the {len(pdr)} reliable panel models (gate 0.5). All four are instrument-unreliable,
-   so the survival ladder is not applied. The base model puts {X['E1_answer_mass'][tg[0]]['F3: pick one of the four']['mean']:.2f} of
-   its probability on an answer option and names one in {named0} of its {d0['n']} greedy decodes.
-2. **SFT creates the survey-taking behaviour; DPO and RLVR amplify it.** Answer mass at forcing 3 goes
-   {seq(lambda t: f"{X['E1_answer_mass'][t]['F3: pick one of the four']['mean']:.2f}", tg)}. The post-trained stages pick a
-   moderate option on the third line whatever the statement says: the pull of the list position grows
-   {seq(lambda t: f"{X['E2'][t]['effects']['position']['range']:.1f}", post)} log units. At the paper's layout, that gives
-   "3) Agree" {min(agree3):.2f}–{max(agree3):.2f} of the answer.
-3. **Where the content gets through, the stages agree.** In the {word(len(X['E4']['cells']))} layouts where each label
-   keeps its number, every post-trained stage reads the anchors (D {min(dcell):.2f}–{max(dcell):.2f}).
-   - They call {each([sum(E4s[t]["d"][a]["called"] for a in POL) for t in post], post)} of the 17 issues, and
-     the null issues {"are never called" if not nnull else f"are called {nnull} times"}.
-   - Their issue profiles correlate at ρ {min(rhos):.2f}–{max(rhos):.2f}, and {word(shifts)} issue{"" if shifts == 1 else "s"}
-     shift{"s" if shifts == 1 else ""} between stages.
-   - {"The stated directions are set at SFT, and neither DPO nor RLVR changes them." if not shifts else "See the report for which issues shift."}
-4. **They follow the panel, more weakly.** Rank correlation with the mean of {len(X['E5']['models'])} panel models in the
-   same layouts: {each([f"{X['E5']['vs_panel'][t]['spearman']['mean']:.2f}" for t in post], post)}. OLMo 2 leans the
-   other way from most of the panel on {flip_txt}{f"; Olmo 3.1 32B sides with the panel on all {word(len(flips))}" if o3_with_panel and flips else ""}.
+![OLMo 2 7B stages](results/olmo2_v2/olmo2_figure.png)
+
+1. **Every stage takes the survey as a completion.** Answer mass at the paper's format is
+   {seq(lambda s: f"{sm[s]['answer mass F3 (paper order)']['mean']:.2f}")}, and {nnum} of {ndec} greedy decodes name an option by number.
+   - The base model reads the statements, but weakly: its 12 factual anchors separate by C = {sm['base']['anchor C (reference)']['mean']:.2f}
+     log-odds (registered threshold 0.5).
+   - SFT, DPO and Instruct separate them by {join([f"{sm[s]['anchor C (reference)']['mean']:.2f}" for s in POST4])}.
+2. **Post-training adds a pull toward agreeing and toward the lower lines.**
+   - Mean agreement at the paper's format goes {seq(lambda s: f"{sm[s]['acquiescence: mean p_agree (reference)']['mean']:.2f}")}.
+   - Re-ordering the options moves the raw answer by {seq(lambda s: f"{OF['models'][TAG[s]]['spin']['order_F3']:.2f}")} Likert
+     units, against {min(para):.2f}–{max(para):.2f} across paraphrases.
+   - No stage passes the panel's reliability gate (anchor D {seq(lambda s: f"{sm[s]['anchor D (reference)']['mean']:.2f}")}).
+     With agreement at its ceiling, the paired readout in probability finds almost nothing.
+3. **Stated directions (registered, H5a): {C['H5']['H5a']['decision']}.** H5a measures a stance relative to the stage's own
+   true-vs-false separation (d_rel, margin ±0.2). Equivalent / different / inconclusive issues:
+   - SFT → DPO: {h5_counts('SFT->DPO')}, with {nm(diffs)} different;
+   - DPO → Instruct: {h5_counts('DPO->Instruct')}.
+
+   Post hoc, most of the SFT → DPO change is one uniform rescaling: stances ×{P3['d_lo_slope']['mean']:.2f} in log-odds,
+   facts ×{P3['C_ratio']['mean']:.2f}. Only {nm(specific)} changes beyond it, and no direction flips.
+4. **The stance pattern is already faintly present in the base model.** Registered H5b: "{C['H5']['H5b']['decision']}", with
+   ρ = {rho['mean']:.2f} [{rho['lo']:.2f}, {rho['hi']:.2f}] against SFT. Post hoc, SFT's stances are
+   {PH['P6']['mean_abs_d_lo']['SFT_over_base']['mean']:.1f} times the base model's in log-odds.
+5. **Read in log-odds, a fixed set of topics survives re-ordering and forcing (post hoc).** Under the panel's ladder
+   rules with d_LO in place of d:
+   - {join([str(len(surv[s])) for s in POST4])} issues survive everything for SFT, DPO and Instruct respectively;
+   - in all three stages: {nm(surv_all)};
+   - from DPO on, also: {nm(surv_late)};
+   - never called by any stage: {nm(never)}.
+
+**Pre-registered predictions:** {join([k for k, v in held.items() if v])} held, and {join([k for k, v in held.items() if not v])} did not.
+
+**One measurement failed.** Under the ending "The answer is", the base model writes a colon before its answer, which
+the readout does not capture. That ending is reported as not measured.
 
 """
 README = f"""# Which LLM opinions survive re-ordering the options and forcing the answer?
@@ -230,18 +258,19 @@ bash run.sh google/gemma-3-4b-it         # one model: ~3,800 prompts, a few minu
 python3 scripts/orderforce_gates.py      # launch gates (decode agreement, opt-out mass, anchors)
 python3 scripts/orderforce_analyze.py    # ladder, spin budget, join with the revealed leans, predictions
 python3 scripts/plot_orderforce.py       # the summary figure
-bash run_olmo2.sh                        # OLMo 2 7B base / SFT / DPO / Instruct, analysed apart in results/olmo2/
-python3 scripts/olmo2_explore.py         # OLMo 2 exploratory analyses (CPU): results/olmo2/olmo2_explore.md
+bash run_olmo2_v2.sh                     # OLMo 2 7B base / SFT / DPO / Instruct (PLAN_OLMO2.md), analysed apart in results/olmo2_v2/
+python3 scripts/olmo2_posthoc.py         # OLMo 2 post-hoc analyses (CPU): results/olmo2_v2/olmo2_posthoc.md
 python3 scripts/plot_olmo2.py            # OLMo 2 summary figure
 ```
 
-`run_olmo2.sh` scores the four OLMo 2 7B training stages at pinned revisions on one GPU (≥ 24 GB, ~75 GB of weights).
-The base model ships no chat template, so it takes the one its SFT, DPO and Instruct checkpoints share and all four see
-token-identical prompts. Gates and ladder run on these four alone in `results/olmo2/`, followed by
-`scripts/olmo2_compare.py`: a paired bootstrap of each issue's direction between stages, plus answer rates, opt-out
-uptake and order spin. `scripts/olmo2_explore.py` adds the analyses of the report: written answers, the position /
-number / label decomposition, the anchor map, and directions in the layouts every post-trained stage reads, set against
-the panel. The conjoint leans in `data/sweep_summary.json` do not cover OLMo 2, so it has no stated-vs-revealed join.
+`run_olmo2_v2.sh` scores the four OLMo 2 7B training stages at pinned revisions on one GPU (≥ 24 GB, ~73 GB of
+weights), plus the base model under three more prompt endings.
+- **Prompts:** every prompt is a plain completion with no chat template, and all four stages see token-identical prompts.
+- **Pipeline:** the gates and the panel's ladder run on these seven runs alone in `results/olmo2_v2/`. They are
+  followed by `scripts/olmo2_compare.py` (paired stage contrasts and equivalence tests, H4–H6) and
+  `scripts/olmo2_explore.py` (answering, the position / number / label decomposition and content effects, H1–H3).
+- **Post-hoc analyses:** `scripts/olmo2_posthoc.py` adds those of the report, labelled as such.
+- **No stated-vs-revealed join:** the conjoint leans in `data/sweep_summary.json` do not cover OLMo 2.
 
 `results/raw/` holds every scored prompt for the 19 models (gzip JSONL, one row per prompt with the per-label log-probs)
 and the greedy decodes of the spot-check subset. `data/sweep_summary.json` carries the revealed leans from the parent
